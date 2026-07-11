@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>数学モンスターテイマー</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { margin: 0; background: #1E2233; -webkit-tap-highlight-color: transparent; }
+  * { font-family: 'Hiragino Maru Gothic ProN', 'Yu Gothic', 'Rounded Mplus 1c', sans-serif; }
+  @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .pop { animation: pop 0.35s ease; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useCallback } = React;
+
+/* =========================================================
+   オリジナル モンスターイラスト（SVG・自作／実在作品の意匠は不使用）
+   ========================================================= */
+function SlimeArt({ primary = "#4FC3F7", secondary = "#2196C9", size = 120 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="50" cy="66" rx="34" ry="10" fill="#000" opacity="0.12" />
+      <path d="M50 20 C24 20 14 46 14 62 C14 80 30 88 50 88 C70 88 86 80 86 62 C86 46 76 20 50 20 Z" fill={primary} />
+      <path d="M20 60 C20 76 34 84 50 84 C66 84 80 76 80 60 C80 68 66 74 50 74 C34 74 20 68 20 60 Z" fill={secondary} opacity="0.55" />
+      <ellipse cx="38" cy="52" rx="5" ry="7" fill="#20242c" />
+      <ellipse cx="62" cy="52" rx="5" ry="7" fill="#20242c" />
+      <ellipse cx="39.5" cy="49.5" rx="1.6" ry="2" fill="#fff" />
+      <ellipse cx="63.5" cy="49.5" rx="1.6" ry="2" fill="#fff" />
+      <path d="M40 66 Q50 73 60 66" stroke="#20242c" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <ellipse cx="28" cy="34" rx="7" ry="4" fill="#fff" opacity="0.35" />
+    </svg>
+  );
+}
+function DragonArt({ primary = "#FF6B4A", secondary = "#C43E24", size = 120 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="52" cy="80" rx="30" ry="8" fill="#000" opacity="0.12" />
+      <path d="M30 70 C18 66 14 50 22 40 L30 46 Z" fill={secondary} />
+      <path d="M70 70 C82 66 86 50 78 40 L70 46 Z" fill={secondary} />
+      <ellipse cx="50" cy="58" rx="26" ry="24" fill={primary} />
+      <path d="M28 40 C20 28 30 16 40 22 C42 14 58 14 60 22 C70 16 80 28 72 40 Z" fill={primary} />
+      <path d="M40 22 L44 34 L36 34 Z" fill={secondary} />
+      <path d="M60 22 L64 34 L56 34 Z" fill={secondary} />
+      <ellipse cx="40" cy="54" rx="5" ry="6.5" fill="#20242c" />
+      <ellipse cx="62" cy="54" rx="5" ry="6.5" fill="#20242c" />
+      <ellipse cx="41.5" cy="51.5" rx="1.6" ry="2" fill="#fff" />
+      <ellipse cx="63.5" cy="51.5" rx="1.6" ry="2" fill="#fff" />
+      <path d="M44 66 Q51 71 58 66" stroke="#20242c" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M20 78 Q10 84 16 92" stroke={secondary} strokeWidth="6" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+function GhostArt({ primary = "#6C5B8C", secondary = "#4A3D66", size = 120 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="50" cy="84" rx="26" ry="6" fill="#000" opacity="0.1" />
+      <path d="M22 60 C22 30 34 16 50 16 C66 16 78 30 78 60 L78 78 L68 68 L58 78 L50 68 L42 78 L32 68 L22 78 Z" fill={primary} />
+      <ellipse cx="38" cy="48" rx="5" ry="6" fill="#20242c" />
+      <ellipse cx="62" cy="48" rx="5" ry="6" fill="#20242c" />
+      <ellipse cx="39.5" cy="46" rx="1.6" ry="2" fill="#fff" />
+      <ellipse cx="63.5" cy="46" rx="1.6" ry="2" fill="#fff" />
+      <ellipse cx="50" cy="60" rx="6" ry="4" fill={secondary} opacity="0.7" />
+      <ellipse cx="24" cy="36" rx="6" ry="3" fill="#fff" opacity="0.3" />
+    </svg>
+  );
+}
+function PlantArt({ primary = "#6BC26A", secondary = "#3E8C42", size = 120 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="50" cy="82" rx="28" ry="7" fill="#000" opacity="0.12" />
+      <path d="M50 40 C50 20 32 14 22 18 C24 30 34 38 46 40 Z" fill={secondary} />
+      <path d="M50 40 C50 20 68 14 78 18 C76 30 66 38 54 40 Z" fill={secondary} />
+      <circle cx="50" cy="58" r="26" fill={primary} />
+      <ellipse cx="40" cy="54" rx="4.5" ry="6" fill="#20242c" />
+      <ellipse cx="60" cy="54" rx="4.5" ry="6" fill="#20242c" />
+      <ellipse cx="41.3" cy="52" rx="1.4" ry="1.8" fill="#fff" />
+      <ellipse cx="61.3" cy="52" rx="1.4" ry="1.8" fill="#fff" />
+      <path d="M42 66 Q50 71 58 66" stroke="#20242c" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <circle cx="50" cy="26" r="6" fill="#FF8FA3" />
+    </svg>
+  );
+}
+function GolemArt({ primary = "#B08968", secondary = "#8A6748", size = 120 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="50" cy="86" rx="30" ry="7" fill="#000" opacity="0.12" />
+      <rect x="16" y="46" width="20" height="24" rx="6" fill={secondary} />
+      <rect x="64" y="46" width="20" height="24" rx="6" fill={secondary} />
+      <rect x="26" y="30" width="48" height="46" rx="10" fill={primary} />
+      <rect x="34" y="14" width="32" height="24" rx="8" fill={primary} />
+      <rect x="36" y="24" width="9" height="7" rx="2" fill="#FFD23D" />
+      <rect x="55" y="24" width="9" height="7" rx="2" fill="#FFD23D" />
+      <rect x="38" y="52" width="10" height="10" rx="2" fill={secondary} opacity="0.6" />
+      <rect x="52" y="52" width="10" height="10" rx="2" fill={secondary} opacity="0.6" />
+      <rect x="42" y="62" width="16" height="8" rx="2" fill={secondary} opacity="0.4" />
+    </svg>
+  );
+}
+function BirdArt({ primary = "#FFE066", secondary = "#F2B705", size = 120 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="50" cy="82" rx="24" ry="6" fill="#000" opacity="0.12" />
+      <path d="M20 56 C6 50 8 34 22 34 C22 44 28 52 36 56 Z" fill={secondary} />
+      <path d="M80 56 C94 50 92 34 78 34 C78 44 72 52 64 56 Z" fill={secondary} />
+      <circle cx="50" cy="52" r="24" fill={primary} />
+      <path d="M50 28 C40 14 60 14 50 28 Z" fill={secondary} />
+      <ellipse cx="42" cy="48" rx="4" ry="5.2" fill="#20242c" />
+      <ellipse cx="58" cy="48" rx="4" ry="5.2" fill="#20242c" />
+      <path d="M46 58 L54 58 L50 64 Z" fill="#FF7A3D" />
+    </svg>
+  );
+}
+
+const SPECIES = {
+  fireSlime: { name: "フレイムン", element: "fire", rarity: 2, Art: (p) => <SlimeArt primary="#FF7A5C" secondary="#D8442A" {...p} /> },
+  waterSlime: { name: "アクアリン", element: "water", rarity: 1, Art: (p) => <SlimeArt primary="#4FC3F7" secondary="#1E88C7" {...p} /> },
+  leafSlime: { name: "リーフィム", element: "grass", rarity: 1, Art: (p) => <SlimeArt primary="#8BD17C" secondary="#4E9A4A" {...p} /> },
+  dragon: { name: "インフェルノドラゴ", element: "fire", rarity: 4, Art: (p) => <DragonArt {...p} /> },
+  ghost: { name: "シャドウウィスプ", element: "dark", rarity: 3, Art: (p) => <GhostArt {...p} /> },
+  plant: { name: "スプラウティ", element: "grass", rarity: 2, Art: (p) => <PlantArt {...p} /> },
+  golem: { name: "ストーンガーディ", element: "rock", rarity: 3, Art: (p) => <GolemArt {...p} /> },
+  bird: { name: "サンダーピヨ", element: "thunder", rarity: 2, Art: (p) => <BirdArt {...p} /> },
+};
+const ELEMENT_COLOR = { fire: "#FF6B4A", water: "#3DA8F5", grass: "#6BC26A", light: "#FFE066", dark: "#6C5B8C", thunder: "#FFD23D", ice: "#A6E1FA", rock: "#B08968" };
+
+const AREAS = [
+  { id: "forest", name: "数字の森", unit: "正負の数", bossName: "負の数ドラゴン", bossSpecies: "dragon", enemySpecies: ["fireSlime", "waterSlime"], color: "#6BC26A", reqLevel: 1 },
+  { id: "cave", name: "文字式の洞窟", unit: "文字式", bossName: "文字式スフィンクス", bossSpecies: "golem", enemySpecies: ["leafSlime", "ghost"], color: "#8A6748", reqLevel: 4 },
+  { id: "tower", name: "方程式の塔", unit: "方程式", bossName: "方程式キング", bossSpecies: "dragon", enemySpecies: ["fireSlime", "bird"], color: "#FFD23D", reqLevel: 8 },
+  { id: "sea", name: "比例の海", unit: "比例・反比例", bossName: "比例フェニックス", bossSpecies: "bird", enemySpecies: ["waterSlime", "plant"], color: "#3DA8F5", reqLevel: 12 },
+  { id: "temple", name: "図形神殿", unit: "図形", bossName: "図形ゴーレム", bossSpecies: "golem", enemySpecies: ["ghost", "golem"], color: "#B08968", reqLevel: 16 },
+];
+
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randNonZero(min, max) { let v = 0; while (v === 0) v = randInt(min, max); return v; }
+
+function generateProblem(unit, difficulty) {
+  const range = Math.min(6 + difficulty * 3, 40);
+  if (unit === "正負の数") {
+    const a = randNonZero(-range, range);
+    const b = randNonZero(-range, range);
+    const op = Math.random() < 0.5 ? "+" : "-";
+    const answer = op === "+" ? a + b : a - b;
+    const bStr = b < 0 ? `(${b})` : `${b}`;
+    return { text: `(${a}) ${op} ${bStr} を計算しなさい。`, answer: String(answer),
+      hint: `${a}${op}${bStr} は、数直線上で${a}の位置から${op === "+" ? (b >= 0 ? "右" : "左") : (b >= 0 ? "左" : "右")}に${Math.abs(b)}進んだ場所だよ。符号に注意して計算してみよう。` };
+  }
+  if (unit === "文字式") {
+    const a = randNonZero(-9, 9);
+    const b = randNonZero(-9, 9);
+    const x = randInt(-9, 9);
+    const answer = a * x + b;
+    return { text: `x = ${x} のとき、${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} の値を求めなさい。`, answer: String(answer),
+      hint: `xに${x}を代入して、${a} × (${x}) をまず計算し、そのあとに ${b} を足し引きしよう。` };
+  }
+  if (unit === "方程式") {
+    const a = randNonZero(2, 4 + Math.floor(difficulty / 2));
+    const x = randInt(-9, 9);
+    const b = randInt(-15, 15);
+    const c = a * x + b;
+    return { text: `${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} = ${c} のとき、xの値を求めなさい。`, answer: String(x),
+      hint: `まず ${b >= 0 ? `右辺から${b}を引いて` : `右辺に${Math.abs(b)}を足して`}、${a}x = ${c - b} の形にしよう。そのあと両辺を${a}で割るとxが出るよ。` };
+  }
+  if (unit === "比例・反比例") {
+    const k = randNonZero(-8, 8);
+    const x = randNonZero(-9, 9);
+    const y = k * x;
+    const askY = Math.random() < 0.5;
+    if (askY) return { text: `y は x に比例し、比例定数は ${k} です。x = ${x} のときの y の値を求めなさい。`, answer: String(y),
+      hint: `比例の式は y = ${k} × x だよ。xに${x}を代入して計算しよう。` };
+    return { text: `y は x に比例し、x = ${x} のとき y = ${y} です。比例定数を求めなさい。`, answer: String(k),
+      hint: `比例定数 k は y ÷ x で求められるよ。${y} ÷ (${x}) を計算してみよう。` };
+  }
+  if (unit === "図形") {
+    const shape = Math.random() < 0.5 ? "rect" : "triangle";
+    const w = randInt(3, 8 + difficulty);
+    const h = randInt(3, 8 + difficulty);
+    if (shape === "rect") return { text: `縦 ${h}cm、横 ${w}cm の長方形の面積を求めなさい（単位: cm²）。`, answer: String(w * h),
+      hint: `長方形の面積は「縦 × 横」で求められるよ。${h} × ${w} を計算しよう。` };
+    const area = (w * h) / 2;
+    return { text: `底辺 ${w}cm、高さ ${h}cm の三角形の面積を求めなさい（単位: cm²）。`, answer: Number.isInteger(area) ? String(area) : area.toFixed(1),
+      hint: `三角形の面積は「底辺 × 高さ ÷ 2」で求められるよ。${w} × ${h} ÷ 2 を計算しよう。` };
+  }
+  return { text: "1 + 1 を計算しなさい。", answer: "2", hint: "1に1を足すだけだよ。" };
+}
+
+function TopBar({ player }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 bg-white/90 rounded-b-2xl shadow-sm">
+      <div className="flex items-center gap-1 text-sm font-bold text-[#333844]">⭐ Lv.{player.level}</div>
+      <div className="flex items-center gap-1 text-sm font-bold text-[#333844]">⚡ EXP {player.exp}/{player.expToNext}</div>
+      <div className="flex items-center gap-1 text-sm font-bold text-[#333844]">🪙 {player.gold}G</div>
+    </div>
+  );
+}
+function Bar({ value, max, color }) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+    </div>
+  );
+}
+
+function MathMonsterGame() {
+  const [screen, setScreen] = useState("map");
+  const [player, setPlayer] = useState({ level: 3, exp: 20, expToNext: 60, gold: 40 });
+  const [partnerId] = useState("fireSlime");
+  const [partnerStats, setPartnerStats] = useState({ level: 3, exp: 10 });
+  const [ownedSet, setOwnedSet] = useState(new Set(["fireSlime"]));
+  const [currentArea, setCurrentArea] = useState(null);
+  const [difficulty, setDifficulty] = useState(3);
+  const [combo, setCombo] = useState(0);
+  const [streak, setStreak] = useState({ correct: 0, wrong: 0 });
+  const [battle, setBattle] = useState(null);
+  const [problem, setProblem] = useState(null);
+  const [input, setInput] = useState("");
+  const [showHint, setShowHint] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const [resultInfo, setResultInfo] = useState(null);
+
+  const partner = SPECIES[partnerId];
+
+  const startBattle = useCallback((area, isBoss = false) => {
+    const enemyId = isBoss ? area.bossSpecies : area.enemySpecies[randInt(0, area.enemySpecies.length - 1)];
+    const enemy = SPECIES[enemyId];
+    const maxHp = isBoss ? 260 : 90;
+    setCurrentArea(area);
+    setBattle({ enemyId, enemy, isBoss, hp: maxHp, maxHp, questionsAnswered: 0, questionsTarget: isBoss ? 10 : 4 });
+    setCombo(0);
+    setStreak({ correct: 0, wrong: 0 });
+    setProblem(generateProblem(area.unit, difficulty));
+    setInput("");
+    setShowHint(false);
+    setFeedback(null);
+    setScreen("battle");
+  }, [difficulty]);
+
+  const nextQuestion = useCallback((area, newDifficulty) => {
+    setProblem(generateProblem(area.unit, newDifficulty));
+    setInput("");
+    setShowHint(false);
+  }, []);
+
+  const submitAnswer = () => {
+    if (!problem || !battle) return;
+    const isCorrect = input.trim() === problem.answer;
+
+    if (isCorrect) {
+      const newStreak = { correct: streak.correct + 1, wrong: 0 };
+      setStreak(newStreak);
+      let newDifficulty = difficulty;
+      if (newStreak.correct >= 3) { newDifficulty = Math.min(10, difficulty + 1); newStreak.correct = 0; }
+      setDifficulty(newDifficulty);
+
+      const newCombo = combo + 1;
+      setCombo(newCombo);
+      const crit = !showHint;
+      const base = battle.isBoss ? 22 : 30;
+      const comboBonus = 1 + Math.min(newCombo * 0.1, 1.0);
+      const critBonus = crit ? 1.5 : 1.0;
+      const dmg = Math.round(base * comboBonus * critBonus);
+      const newHp = Math.max(0, battle.hp - dmg);
+      const newAnswered = battle.questionsAnswered + 1;
+
+      setFeedback({ type: "correct", message: crit ? `会心の一撃！ ${dmg}ダメージ！` : `正解！ ${dmg}ダメージ！` });
+
+      setTimeout(() => {
+        setFeedback(null);
+        if (newHp <= 0 || newAnswered >= battle.questionsTarget) {
+          finishBattle(true, newAnswered);
+        } else {
+          setBattle((b) => ({ ...b, hp: newHp, questionsAnswered: newAnswered }));
+          nextQuestion(currentArea, newDifficulty);
+        }
+      }, 900);
+    } else {
+      const newStreak = { correct: 0, wrong: streak.wrong + 1 };
+      setStreak(newStreak);
+      setCombo(0);
+      let newDifficulty = difficulty;
+      if (newStreak.wrong >= 2) { newDifficulty = Math.max(1, difficulty - 1); newStreak.wrong = 0; }
+      setDifficulty(newDifficulty);
+      setFeedback({ type: "wrong", message: "おしい！ もう一度考えてみよう" });
+      setShowHint(true);
+      setTimeout(() => setFeedback(null), 1200);
+    }
+  };
+
+  const finishBattle = (won, questionsAnswered) => {
+    const expGain = battle.isBoss ? 50 : 15;
+    const goldGain = battle.isBoss ? 30 : 10;
+    setResultInfo({
+      won, isBoss: battle.isBoss, expGain, goldGain,
+      caught: !battle.isBoss && Math.random() < 0.4 ? battle.enemyId : null,
+      areaCleared: battle.isBoss,
+    });
+
+    setPlayer((p) => {
+      let exp = p.exp + expGain, level = p.level, expToNext = p.expToNext;
+      while (exp >= expToNext) { exp -= expToNext; level += 1; expToNext = Math.round(expToNext * 1.25); }
+      return { ...p, exp, level, expToNext, gold: p.gold + goldGain };
+    });
+
+    setPartnerStats((s) => {
+      let exp = s.exp + expGain, level = s.level, threshold = 20 + level * 5;
+      while (exp >= threshold) { exp -= threshold; level += 1; threshold = 20 + level * 5; }
+      return { level, exp };
+    });
+
+    if (!battle.isBoss && Math.random() < 0.4) setOwnedSet((s) => new Set([...s, battle.enemyId]));
+
+    setScreen("result");
+  };
+
+  const areaUnlocked = (area) => player.level >= area.reqLevel;
+
+  function MapScreen() {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#FFFBF5] to-[#FFF3E0] pb-24">
+        <TopBar player={player} />
+        <div className="px-4 pt-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🗺️</span>
+            <h1 className="text-lg font-extrabold text-[#333844]">ワールドマップ</h1>
+          </div>
+          <p className="text-xs text-[#7A7F8C] mb-4">エリアを選んで数学バトルに挑戦しよう！</p>
+        </div>
+
+        <div className="px-4 flex flex-col gap-3">
+          {AREAS.map((area) => {
+            const unlocked = areaUnlocked(area);
+            return (
+              <button key={area.id} disabled={!unlocked} onClick={() => startBattle(area, false)}
+                className={`relative rounded-2xl p-4 text-left shadow-md transition-transform active:scale-95 ${unlocked ? "opacity-100" : "opacity-40 grayscale"}`}
+                style={{ background: `linear-gradient(135deg, ${area.color}22, ${area.color}55)`, border: `2px solid ${area.color}` }}>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="text-base font-extrabold text-[#333844]">{area.name}</div>
+                    <div className="text-xs text-[#5c6070] mt-0.5">単元：{area.unit}</div>
+                    <div className="text-xs text-[#5c6070]">ボス：{area.bossName}</div>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    {SPECIES[area.enemySpecies[0]].Art({ size: 56 })}
+                    {unlocked ? <span className="text-[#333844]">›</span> : <span className="text-[10px] font-bold text-[#5c6070]">Lv.{area.reqLevel}で解放</span>}
+                  </div>
+                </div>
+                {unlocked && (
+                  <button onClick={(e) => { e.stopPropagation(); startBattle(area, true); }}
+                    className="mt-2 text-xs font-bold px-3 py-1.5 rounded-full bg-white/80 text-[#333844] shadow-sm hover:bg-white">
+                    ⚔️ ボス「{area.bossName}」に挑戦
+                  </button>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="px-4 mt-4">
+          <button onClick={() => setScreen("collection")}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#4FC3F7] text-white font-bold shadow-md active:scale-95 transition-transform">
+            📖 モンスター図鑑を見る
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function BattleScreen() {
+    if (!battle || !problem || !currentArea) return null;
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(180deg, ${currentArea.color}33, #FFFBF5 60%)` }}>
+        <TopBar player={player} />
+        <div className="flex-1 flex flex-col items-center px-4 pt-4">
+          <div className="flex flex-col items-center mb-2">
+            <div className="text-sm font-bold text-[#333844] mb-1">
+              {battle.isBoss ? "⚔ " : ""}{battle.enemy.name}{battle.isBoss ? "（ボス）" : ""}
+            </div>
+            <div className={feedback?.type === "correct" ? "pop" : ""}>{battle.enemy.Art({ size: battle.isBoss ? 150 : 110 })}</div>
+            <div className="w-48 mt-1">
+              <Bar value={battle.hp} max={battle.maxHp} color={ELEMENT_COLOR[battle.enemy.element] || "#FF7A3D"} />
+              <div className="text-[10px] text-center text-[#5c6070] mt-0.5">HP {battle.hp}/{battle.maxHp}</div>
+            </div>
+          </div>
+
+          {combo > 1 && <div className="text-xs font-extrabold text-[#FF7A3D] mb-1">✨ {combo} コンボ！</div>}
+
+          {feedback && (
+            <div className={`text-sm font-bold px-4 py-1.5 rounded-full mb-2 ${feedback.type === "correct" ? "bg-[#FFD54F] text-[#5c4300]" : "bg-[#FF8A80] text-white"}`}>
+              {feedback.message}
+            </div>
+          )}
+
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-4 mt-2">
+            <div className="text-xs font-bold text-[#4FC3F7] mb-1">単元：{currentArea.unit}（難易度 {difficulty}）</div>
+            <div className="text-base font-bold text-[#333844] leading-relaxed mb-3">{problem.text}</div>
+
+            {showHint && (
+              <div className="bg-[#FFF3E0] border border-[#FFD54F] rounded-xl p-3 mb-3 text-sm text-[#5c4300]">💡 {problem.hint}</div>
+            )}
+
+            <div className="flex gap-2">
+              <input type="text" inputMode="numeric" value={input} onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitAnswer()} placeholder="答えを入力"
+                className="flex-1 border-2 border-[#4FC3F7]/40 rounded-xl px-3 py-3 text-lg font-bold text-center focus:outline-none focus:border-[#4FC3F7]" />
+              <button onClick={submitAnswer} disabled={input.trim() === ""}
+                className="px-5 rounded-xl bg-[#FF7A3D] text-white font-bold shadow-md active:scale-95 transition-transform disabled:opacity-40">
+                こうげき！
+              </button>
+            </div>
+          </div>
+
+          <div className="text-xs text-[#7A7F8C] mt-3">
+            {battle.isBoss ? `総復習バトル：${battle.questionsAnswered}/${battle.questionsTarget}問` : `あと${battle.questionsTarget - battle.questionsAnswered}問でモンスターを倒せる！`}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function ResultScreen() {
+    if (!resultInfo) return null;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#FFF3E0] to-[#FFFBF5] px-6">
+        <div className="text-3xl mb-2">{resultInfo.isBoss ? "🏆" : "🎉"}</div>
+        <h2 className="text-xl font-extrabold text-[#333844] mb-1">{resultInfo.isBoss ? "ボスを倒した！" : "勝利！"}</h2>
+        <p className="text-sm text-[#5c6070] mb-6">{currentArea?.name}での戦いに勝利しました</p>
+
+        <div className="bg-white rounded-2xl shadow-md p-5 w-full max-w-xs space-y-3">
+          <div className="flex items-center justify-between text-sm font-bold text-[#333844]"><span>⚡ 獲得経験値</span><span>+{resultInfo.expGain} EXP</span></div>
+          <div className="flex items-center justify-between text-sm font-bold text-[#333844]"><span>🪙 獲得ゴールド</span><span>+{resultInfo.goldGain} G</span></div>
+          {resultInfo.caught && (
+            <div className="flex items-center justify-between text-sm font-bold text-[#333844] pt-2 border-t">
+              <span>新しい仲間！</span>
+              <span className="flex items-center gap-2">{SPECIES[resultInfo.caught].name}{SPECIES[resultInfo.caught].Art({ size: 32 })}</span>
+            </div>
+          )}
+          {resultInfo.areaCleared && <div className="text-xs text-center text-[#FF7A3D] font-bold pt-2 border-t">次のエリアが解放されたかも！レベルを確認しよう</div>}
+        </div>
+
+        <button onClick={() => setScreen("map")} className="mt-6 px-8 py-3 rounded-full bg-[#FF7A3D] text-white font-extrabold shadow-md active:scale-95 transition-transform">
+          マップにもどる
+        </button>
+      </div>
+    );
+  }
+
+  function CollectionScreen() {
+    const all = Object.entries(SPECIES);
+    return (
+      <div className="min-h-screen bg-[#FFFBF5] pb-8">
+        <TopBar player={player} />
+        <div className="px-4 pt-4">
+          <div className="flex items-center gap-2 mb-1"><span className="text-lg">📖</span><h1 className="text-lg font-extrabold text-[#333844]">モンスター図鑑</h1></div>
+          <p className="text-xs text-[#7A7F8C] mb-4">{ownedSet.size} / {all.length} 体を仲間にした</p>
+        </div>
+        <div className="px-4 grid grid-cols-2 gap-3">
+          {all.map(([id, sp]) => {
+            const owned = ownedSet.has(id);
+            const isPartner = id === partnerId;
+            return (
+              <div key={id} className={`rounded-2xl p-3 shadow-sm flex flex-col items-center ${owned ? "bg-white" : "bg-black/5"}`}>
+                <div className={owned ? "" : "grayscale opacity-30"}>{sp.Art({ size: 80 })}</div>
+                <div className="text-sm font-bold text-[#333844] mt-1">{owned ? sp.name : "？？？"}</div>
+                {owned && (
+                  <React.Fragment>
+                    <div className="flex gap-0.5 mt-0.5">{Array.from({ length: sp.rarity }).map((_, i) => <span key={i} className="text-[10px]">⭐</span>)}</div>
+                    {isPartner && <div className="text-[10px] font-bold text-white bg-[#FF7A3D] rounded-full px-2 py-0.5 mt-1">相棒 Lv.{partnerStats.level}</div>}
+                  </React.Fragment>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="px-4 mt-4">
+          <button onClick={() => setScreen("map")} className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#FF7A3D] text-white font-bold shadow-md active:scale-95 transition-transform">
+            🗺️ マップにもどる
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function PartnerCard() {
+    if (screen !== "map") return null;
+    return (
+      <div className="fixed bottom-4 right-4 bg-white rounded-2xl shadow-lg p-2 flex items-center gap-2">
+        {partner.Art({ size: 48 })}
+        <div className="pr-2">
+          <div className="text-xs font-bold text-[#333844]">{partner.name}</div>
+          <div className="text-[10px] text-[#7A7F8C]">相棒 Lv.{partnerStats.level}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="font-sans max-w-md mx-auto relative bg-[#FFFBF5] min-h-screen shadow-2xl">
+      {screen === "map" && <MapScreen />}
+      {screen === "battle" && <BattleScreen />}
+      {screen === "result" && <ResultScreen />}
+      {screen === "collection" && <CollectionScreen />}
+      <PartnerCard />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<MathMonsterGame />);
+</script>
+</body>
+</html>
