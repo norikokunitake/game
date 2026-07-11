@@ -2,27 +2,33 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
+<!-- ズームを無効化し、アプリライクな挙動を強制 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>数学モンスターテイマー</title>
+<title>数学モンスターテイマー - UI改修版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body { margin: 0; background: #1E2233; -webkit-tap-highlight-color: transparent; }
-  * { font-family: 'Hiragino Maru Gothic ProN', 'Yu Gothic', 'Rounded Mplus 1c', sans-serif; }
+  body { margin: 0; background: #1E2233; -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior-y: contain; }
+  * { font-family: 'Hiragino Maru Gothic ProN', 'Yu Gothic', 'Rounded Mplus 1c', sans-serif; user-select: none; }
   @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
   .pop { animation: pop 0.35s ease; }
+  .shake { animation: shake 0.3s ease; }
+  
+  /* カスタムスクロールバーの非表示 */
+  ::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
-const { useState, useCallback } = React;
+const { useState, useCallback, useEffect } = React;
 
 /* =========================================================
-   オリジナル モンスターイラスト（SVG・自作／実在作品の意匠は不使用）
+   オリジナル モンスターイラスト群（変更なし）
    ========================================================= */
 function SlimeArt({ primary = "#4FC3F7", secondary = "#2196C9", size = 120 }) {
   return (
@@ -143,6 +149,7 @@ function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) 
 function randNonZero(min, max) { let v = 0; while (v === 0) v = randInt(min, max); return v; }
 
 function generateProblem(unit, difficulty) {
+  // 問題生成ロジックは変更なし
   const range = Math.min(6 + difficulty * 3, 40);
   if (unit === "正負の数") {
     const a = randNonZero(-range, range);
@@ -150,66 +157,141 @@ function generateProblem(unit, difficulty) {
     const op = Math.random() < 0.5 ? "+" : "-";
     const answer = op === "+" ? a + b : a - b;
     const bStr = b < 0 ? `(${b})` : `${b}`;
-    return { text: `(${a}) ${op} ${bStr} を計算しなさい。`, answer: String(answer),
-      hint: `${a}${op}${bStr} は、数直線上で${a}の位置から${op === "+" ? (b >= 0 ? "右" : "左") : (b >= 0 ? "左" : "右")}に${Math.abs(b)}進んだ場所だよ。符号に注意して計算してみよう。` };
+    return { text: `(${a}) ${op} ${bStr} を計算せよ。`, answer: String(answer),
+      hint: `数直線上で${a}からスタートして考えよう。` };
   }
   if (unit === "文字式") {
     const a = randNonZero(-9, 9);
     const b = randNonZero(-9, 9);
     const x = randInt(-9, 9);
     const answer = a * x + b;
-    return { text: `x = ${x} のとき、${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} の値を求めなさい。`, answer: String(answer),
-      hint: `xに${x}を代入して、${a} × (${x}) をまず計算し、そのあとに ${b} を足し引きしよう。` };
+    return { text: `x = ${x} のとき、${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} の値は？`, answer: String(answer),
+      hint: `xに${x}を代入して掛け算から先に計算しよう。` };
   }
   if (unit === "方程式") {
     const a = randNonZero(2, 4 + Math.floor(difficulty / 2));
     const x = randInt(-9, 9);
     const b = randInt(-15, 15);
     const c = a * x + b;
-    return { text: `${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} = ${c} のとき、xの値を求めなさい。`, answer: String(x),
-      hint: `まず ${b >= 0 ? `右辺から${b}を引いて` : `右辺に${Math.abs(b)}を足して`}、${a}x = ${c - b} の形にしよう。そのあと両辺を${a}で割るとxが出るよ。` };
+    return { text: `${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} = ${c} のとき、xは？`, answer: String(x),
+      hint: `まずは定数項を右辺に移項しよう。` };
   }
   if (unit === "比例・反比例") {
     const k = randNonZero(-8, 8);
     const x = randNonZero(-9, 9);
     const y = k * x;
     const askY = Math.random() < 0.5;
-    if (askY) return { text: `y は x に比例し、比例定数は ${k} です。x = ${x} のときの y の値を求めなさい。`, answer: String(y),
-      hint: `比例の式は y = ${k} × x だよ。xに${x}を代入して計算しよう。` };
-    return { text: `y は x に比例し、x = ${x} のとき y = ${y} です。比例定数を求めなさい。`, answer: String(k),
-      hint: `比例定数 k は y ÷ x で求められるよ。${y} ÷ (${x}) を計算してみよう。` };
+    if (askY) return { text: `yはxに比例(定数${k})。x=${x}のときyは？`, answer: String(y),
+      hint: `y = ${k} × x に代入しよう。` };
+    return { text: `yはxに比例。x=${x}のときy=${y}。比例定数は？`, answer: String(k),
+      hint: `比例定数は y ÷ x だよ。` };
   }
   if (unit === "図形") {
     const shape = Math.random() < 0.5 ? "rect" : "triangle";
     const w = randInt(3, 8 + difficulty);
     const h = randInt(3, 8 + difficulty);
-    if (shape === "rect") return { text: `縦 ${h}cm、横 ${w}cm の長方形の面積を求めなさい（単位: cm²）。`, answer: String(w * h),
-      hint: `長方形の面積は「縦 × 横」で求められるよ。${h} × ${w} を計算しよう。` };
+    if (shape === "rect") return { text: `縦${h}cm、横${w}cm の長方形の面積は？`, answer: String(w * h),
+      hint: `長方形は「縦 × 横」だよ。` };
     const area = (w * h) / 2;
-    return { text: `底辺 ${w}cm、高さ ${h}cm の三角形の面積を求めなさい（単位: cm²）。`, answer: Number.isInteger(area) ? String(area) : area.toFixed(1),
-      hint: `三角形の面積は「底辺 × 高さ ÷ 2」で求められるよ。${w} × ${h} ÷ 2 を計算しよう。` };
+    return { text: `底辺${w}cm、高さ${h}cm の三角形の面積は？`, answer: Number.isInteger(area) ? String(area) : area.toFixed(1),
+      hint: `三角形は「底辺 × 高さ ÷ 2」だよ。` };
   }
-  return { text: "1 + 1 を計算しなさい。", answer: "2", hint: "1に1を足すだけだよ。" };
+  return { text: "1 + 1 は？", answer: "2", hint: "そのまま計算しよう。" };
 }
 
+/* =========================================================
+   UI Components
+   ========================================================= */
 function TopBar({ player }) {
+  const [bgmOn, setBgmOn] = useState(false);
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-white/90 rounded-b-2xl shadow-sm">
-      <div className="flex items-center gap-1 text-sm font-bold text-[#333844]">⭐ Lv.{player.level}</div>
-      <div className="flex items-center gap-1 text-sm font-bold text-[#333844]">⚡ EXP {player.exp}/{player.expToNext}</div>
-      <div className="flex items-center gap-1 text-sm font-bold text-[#333844]">🪙 {player.gold}G</div>
+    <div className="flex items-center justify-between px-4 py-3 bg-white/95 rounded-b-2xl shadow-sm sticky top-0 z-10 backdrop-blur">
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col">
+          <span className="text-[10px] text-[#7A7F8C] font-bold">レベル</span>
+          <span className="text-sm font-extrabold text-[#333844]">⭐ {player.level}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] text-[#7A7F8C] font-bold">EXP</span>
+          <span className="text-sm font-extrabold text-[#333844]">⚡ {player.exp}/{player.expToNext}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] text-[#7A7F8C] font-bold">ゴールド</span>
+          <span className="text-sm font-extrabold text-[#333844]">🪙 {player.gold}</span>
+        </div>
+        <button 
+          onClick={() => setBgmOn(!bgmOn)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${bgmOn ? 'bg-[#4FC3F7] text-white' : 'bg-gray-100 text-gray-400'}`}
+          title="集中BGMのON/OFF"
+        >
+          {bgmOn ? '🎵' : '🔇'}
+        </button>
+      </div>
     </div>
   );
 }
+
 function Bar({ value, max, color }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
-    <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
-      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+    <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden shadow-inner">
+      <div className="h-full rounded-full transition-all duration-300 ease-out" style={{ width: `${pct}%`, background: color }} />
     </div>
   );
 }
 
+/* =========================================================
+   Custom Numpad (スマホ特化の入力UI)
+   ========================================================= */
+function Numpad({ onInput, onSubmit, onDelete, disabled }) {
+  const buttons = [
+    "7", "8", "9",
+    "4", "5", "6",
+    "1", "2", "3",
+    "-", "0", "."
+  ];
+
+  return (
+    <div className="w-full bg-white rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] p-4 pb-8 mt-auto">
+      <div className="grid grid-cols-4 gap-2 h-48">
+        <div className="col-span-3 grid grid-cols-3 gap-2">
+          {buttons.map((btn) => (
+            <button
+              key={btn}
+              onClick={() => onInput(btn)}
+              disabled={disabled}
+              className="bg-[#F4F6F8] active:bg-[#E2E8F0] text-[#333844] text-xl font-bold rounded-2xl flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
+            >
+              {btn}
+            </button>
+          ))}
+        </div>
+        <div className="col-span-1 flex flex-col gap-2">
+          <button
+            onClick={onDelete}
+            disabled={disabled}
+            className="flex-1 bg-[#F4F6F8] active:bg-[#FF8A80] active:text-white text-[#7A7F8C] text-lg font-bold rounded-2xl flex items-center justify-center transition-colors shadow-sm disabled:opacity-50"
+          >
+            ⌫
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={disabled}
+            className="flex-[2] bg-gradient-to-b from-[#FF8A5C] to-[#FF6B4A] active:scale-95 text-white text-lg font-extrabold rounded-2xl flex items-center justify-center transition-transform shadow-md disabled:opacity-50"
+          >
+            攻撃!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   Game Logic
+   ========================================================= */
 function MathMonsterGame() {
   const [screen, setScreen] = useState("map");
   const [player, setPlayer] = useState({ level: 3, exp: 20, expToNext: 60, gold: 40 });
@@ -226,6 +308,7 @@ function MathMonsterGame() {
   const [showHint, setShowHint] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [resultInfo, setResultInfo] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const partner = SPECIES[partnerId];
 
@@ -248,10 +331,26 @@ function MathMonsterGame() {
     setProblem(generateProblem(area.unit, newDifficulty));
     setInput("");
     setShowHint(false);
+    setIsProcessing(false);
   }, []);
 
+  const handleInput = (val) => {
+    if (isProcessing) return;
+    if (input.length > 8) return; // 桁数制限
+    if (val === "-" && input !== "") return; // マイナスは先頭のみ
+    if (val === "." && input.includes(".")) return; // 小数点は1つまで
+    setInput(prev => prev + val);
+  };
+
+  const handleDelete = () => {
+    if (isProcessing) return;
+    setInput(prev => prev.slice(0, -1));
+  };
+
   const submitAnswer = () => {
-    if (!problem || !battle) return;
+    if (!problem || !battle || isProcessing || input.trim() === "") return;
+    setIsProcessing(true);
+    
     const isCorrect = input.trim() === problem.answer;
 
     if (isCorrect) {
@@ -273,15 +372,17 @@ function MathMonsterGame() {
 
       setFeedback({ type: "correct", message: crit ? `会心の一撃！ ${dmg}ダメージ！` : `正解！ ${dmg}ダメージ！` });
 
+      // テンポアップ: 900ms -> 600ms に短縮
       setTimeout(() => {
         setFeedback(null);
         if (newHp <= 0 || newAnswered >= battle.questionsTarget) {
           finishBattle(true, newAnswered);
+          setIsProcessing(false);
         } else {
           setBattle((b) => ({ ...b, hp: newHp, questionsAnswered: newAnswered }));
           nextQuestion(currentArea, newDifficulty);
         }
-      }, 900);
+      }, 600); 
     } else {
       const newStreak = { correct: 0, wrong: streak.wrong + 1 };
       setStreak(newStreak);
@@ -291,7 +392,13 @@ function MathMonsterGame() {
       setDifficulty(newDifficulty);
       setFeedback({ type: "wrong", message: "おしい！ もう一度考えてみよう" });
       setShowHint(true);
-      setTimeout(() => setFeedback(null), 1200);
+      
+      // 不正解時は入力をクリアしてすぐ再挑戦可能に
+      setTimeout(() => {
+        setFeedback(null);
+        setInput("");
+        setIsProcessing(false);
+      }, 800);
     }
   };
 
@@ -325,49 +432,52 @@ function MathMonsterGame() {
 
   function MapScreen() {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFFBF5] to-[#FFF3E0] pb-24">
+      <div className="min-h-screen bg-[#F8FAFC] pb-24">
         <TopBar player={player} />
-        <div className="px-4 pt-4">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🗺️</span>
-            <h1 className="text-lg font-extrabold text-[#333844]">ワールドマップ</h1>
-          </div>
-          <p className="text-xs text-[#7A7F8C] mb-4">エリアを選んで数学バトルに挑戦しよう！</p>
+        <div className="px-5 pt-6 pb-2">
+          <h1 className="text-2xl font-extrabold text-[#1E293B]">エリア選択</h1>
+          <p className="text-sm text-[#64748B] mt-1">好きなステージを選んでバトル開始！</p>
         </div>
 
-        <div className="px-4 flex flex-col gap-3">
+        <div className="px-4 flex flex-col gap-4">
           {AREAS.map((area) => {
             const unlocked = areaUnlocked(area);
             return (
-              <button key={area.id} disabled={!unlocked} onClick={() => startBattle(area, false)}
-                className={`relative rounded-2xl p-4 text-left shadow-md transition-transform active:scale-95 ${unlocked ? "opacity-100" : "opacity-40 grayscale"}`}
-                style={{ background: `linear-gradient(135deg, ${area.color}22, ${area.color}55)`, border: `2px solid ${area.color}` }}>
+              <div key={area.id} 
+                className={`relative rounded-3xl p-5 text-left transition-all ${unlocked ? "shadow-lg bg-white" : "opacity-50 bg-gray-100 grayscale"}`}
+                style={unlocked ? { borderLeft: `6px solid ${area.color}` } : {}}>
                 <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-base font-extrabold text-[#333844]">{area.name}</div>
-                    <div className="text-xs text-[#5c6070] mt-0.5">単元：{area.unit}</div>
-                    <div className="text-xs text-[#5c6070]">ボス：{area.bossName}</div>
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-[#64748B] mb-1">{area.unit}</div>
+                    <div className="text-xl font-extrabold text-[#1E293B] leading-tight">{area.name}</div>
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    {SPECIES[area.enemySpecies[0]].Art({ size: 56 })}
-                    {unlocked ? <span className="text-[#333844]">›</span> : <span className="text-[10px] font-bold text-[#5c6070]">Lv.{area.reqLevel}で解放</span>}
+                  <div className="w-16 h-16 flex items-center justify-center">
+                    {SPECIES[area.enemySpecies[0]].Art({ size: 64 })}
                   </div>
                 </div>
-                {unlocked && (
-                  <button onClick={(e) => { e.stopPropagation(); startBattle(area, true); }}
-                    className="mt-2 text-xs font-bold px-3 py-1.5 rounded-full bg-white/80 text-[#333844] shadow-sm hover:bg-white">
-                    ⚔️ ボス「{area.bossName}」に挑戦
+                
+                <div className="mt-4 flex gap-2">
+                  <button disabled={!unlocked} onClick={() => startBattle(area, false)}
+                    className="flex-1 py-2.5 rounded-xl bg-[#F1F5F9] text-[#334155] font-bold text-sm active:scale-95 transition-transform">
+                    {unlocked ? "探索する" : `Lv.${area.reqLevel}で解放`}
                   </button>
-                )}
-              </button>
+                  {unlocked && (
+                    <button onClick={(e) => { e.stopPropagation(); startBattle(area, true); }}
+                      className="flex-1 py-2.5 rounded-xl text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+                      style={{ backgroundColor: area.color }}>
+                      ボスに挑戦
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
 
-        <div className="px-4 mt-4">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white to-transparent pointer-events-none">
           <button onClick={() => setScreen("collection")}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#4FC3F7] text-white font-bold shadow-md active:scale-95 transition-transform">
-            📖 モンスター図鑑を見る
+            className="w-full max-w-md mx-auto pointer-events-auto flex items-center justify-center gap-2 py-4 rounded-2xl bg-[#1E293B] text-white font-bold shadow-xl active:scale-95 transition-transform">
+            📖 モンスター図鑑
           </button>
         </div>
       </div>
@@ -376,51 +486,68 @@ function MathMonsterGame() {
 
   function BattleScreen() {
     if (!battle || !problem || !currentArea) return null;
+    
+    const isError = feedback?.type === "wrong";
+    
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(180deg, ${currentArea.color}33, #FFFBF5 60%)` }}>
+      <div className="h-[100dvh] flex flex-col overflow-hidden" style={{ background: `linear-gradient(180deg, ${currentArea.color}22, #F8FAFC 40%)` }}>
         <TopBar player={player} />
-        <div className="flex-1 flex flex-col items-center px-4 pt-4">
-          <div className="flex flex-col items-center mb-2">
-            <div className="text-sm font-bold text-[#333844] mb-1">
-              {battle.isBoss ? "⚔ " : ""}{battle.enemy.name}{battle.isBoss ? "（ボス）" : ""}
-            </div>
-            <div className={feedback?.type === "correct" ? "pop" : ""}>{battle.enemy.Art({ size: battle.isBoss ? 150 : 110 })}</div>
-            <div className="w-48 mt-1">
-              <Bar value={battle.hp} max={battle.maxHp} color={ELEMENT_COLOR[battle.enemy.element] || "#FF7A3D"} />
-              <div className="text-[10px] text-center text-[#5c6070] mt-0.5">HP {battle.hp}/{battle.maxHp}</div>
-            </div>
-          </div>
-
-          {combo > 1 && <div className="text-xs font-extrabold text-[#FF7A3D] mb-1">✨ {combo} コンボ！</div>}
-
-          {feedback && (
-            <div className={`text-sm font-bold px-4 py-1.5 rounded-full mb-2 ${feedback.type === "correct" ? "bg-[#FFD54F] text-[#5c4300]" : "bg-[#FF8A80] text-white"}`}>
-              {feedback.message}
-            </div>
-          )}
-
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-4 mt-2">
-            <div className="text-xs font-bold text-[#4FC3F7] mb-1">単元：{currentArea.unit}（難易度 {difficulty}）</div>
-            <div className="text-base font-bold text-[#333844] leading-relaxed mb-3">{problem.text}</div>
-
-            {showHint && (
-              <div className="bg-[#FFF3E0] border border-[#FFD54F] rounded-xl p-3 mb-3 text-sm text-[#5c4300]">💡 {problem.hint}</div>
+        
+        {/* バトルエリア */}
+        <div className="flex-1 flex flex-col justify-center items-center px-4 relative">
+          
+          {/* コンボ＆フィードバック表示 */}
+          <div className="absolute top-4 w-full text-center h-12 flex flex-col items-center justify-center">
+            {combo > 1 && !feedback && <div className="text-sm font-extrabold text-[#FF7A3D] animate-bounce">✨ {combo} コンボ！</div>}
+            {feedback && (
+              <div className={`text-base font-bold px-6 py-2 rounded-full shadow-lg ${feedback.type === "correct" ? "bg-[#FFD54F] text-[#5c4300] pop" : "bg-[#FF8A80] text-white shake"}`}>
+                {feedback.message}
+              </div>
             )}
+          </div>
 
-            <div className="flex gap-2">
-              <input type="text" inputMode="numeric" value={input} onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submitAnswer()} placeholder="答えを入力"
-                className="flex-1 border-2 border-[#4FC3F7]/40 rounded-xl px-3 py-3 text-lg font-bold text-center focus:outline-none focus:border-[#4FC3F7]" />
-              <button onClick={submitAnswer} disabled={input.trim() === ""}
-                className="px-5 rounded-xl bg-[#FF7A3D] text-white font-bold shadow-md active:scale-95 transition-transform disabled:opacity-40">
-                こうげき！
-              </button>
+          <div className="flex flex-col items-center mt-8">
+            <div className={`transition-transform duration-300 ${feedback?.type === "correct" ? "pop drop-shadow-xl" : "drop-shadow-md"}`}>
+              {battle.enemy.Art({ size: battle.isBoss ? 160 : 120 })}
+            </div>
+            <div className="w-48 mt-4 bg-white/80 p-2 rounded-xl shadow-sm backdrop-blur">
+              <div className="flex justify-between items-end mb-1">
+                <span className="text-xs font-bold text-[#333844]">{battle.enemy.name}</span>
+                <span className="text-[10px] text-[#64748B]">HP {battle.hp}/{battle.maxHp}</span>
+              </div>
+              <Bar value={battle.hp} max={battle.maxHp} color={ELEMENT_COLOR[battle.enemy.element] || "#FF7A3D"} />
             </div>
           </div>
+        </div>
 
-          <div className="text-xs text-[#7A7F8C] mt-3">
-            {battle.isBoss ? `総復習バトル：${battle.questionsAnswered}/${battle.questionsTarget}問` : `あと${battle.questionsTarget - battle.questionsAnswered}問でモンスターを倒せる！`}
+        {/* 問題＆入力エリア（キーボードに隠れないよう画面下部に固定） */}
+        <div className="w-full bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-20 flex flex-col">
+          <div className="px-6 pt-5 pb-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] font-bold text-[#64748B] bg-gray-100 px-2 py-1 rounded-md">{currentArea.unit}</span>
+              <span className="text-[10px] text-[#64748B]">あと {battle.questionsTarget - battle.questionsAnswered} 問</span>
+            </div>
+            
+            <div className="text-lg font-bold text-[#1E293B] leading-relaxed min-h-[3rem] flex items-center">
+              {problem.text}
+            </div>
+
+            {/* 入力ディスプレイ */}
+            <div className={`mt-4 bg-[#F8FAFC] border-2 rounded-2xl p-4 flex items-center justify-center min-h-[4rem] transition-colors ${isError ? 'border-[#FF8A80] bg-[#FFF0F0] shake' : 'border-[#E2E8F0]'}`}>
+              <span className={`text-3xl font-extrabold tracking-widest ${input ? 'text-[#1E293B]' : 'text-gray-300'}`}>
+                {input || "答えを入力"}
+              </span>
+            </div>
+            
+            {showHint && (
+              <div className="mt-3 bg-[#FFF8E1] border border-[#FFE082] rounded-xl p-3 text-sm text-[#8D6E63] font-medium pop">
+                💡 {problem.hint}
+              </div>
+            )}
           </div>
+          
+          {/* カスタムナンバーパッド */}
+          <Numpad onInput={handleInput} onDelete={handleDelete} onSubmit={submitAnswer} disabled={isProcessing} />
         </div>
       </div>
     );
@@ -429,24 +556,32 @@ function MathMonsterGame() {
   function ResultScreen() {
     if (!resultInfo) return null;
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#FFF3E0] to-[#FFFBF5] px-6">
-        <div className="text-3xl mb-2">{resultInfo.isBoss ? "🏆" : "🎉"}</div>
-        <h2 className="text-xl font-extrabold text-[#333844] mb-1">{resultInfo.isBoss ? "ボスを倒した！" : "勝利！"}</h2>
-        <p className="text-sm text-[#5c6070] mb-6">{currentArea?.name}での戦いに勝利しました</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#F1F5F9] to-[#FFF] px-6">
+        <div className="text-5xl mb-4 pop">{resultInfo.isBoss ? "🏆" : "🎉"}</div>
+        <h2 className="text-2xl font-extrabold text-[#1E293B] mb-2">{resultInfo.isBoss ? "ボス討伐完了！" : "バトル勝利！"}</h2>
+        <p className="text-sm text-[#64748B] mb-8">{currentArea?.name}をクリアしました</p>
 
-        <div className="bg-white rounded-2xl shadow-md p-5 w-full max-w-xs space-y-3">
-          <div className="flex items-center justify-between text-sm font-bold text-[#333844]"><span>⚡ 獲得経験値</span><span>+{resultInfo.expGain} EXP</span></div>
-          <div className="flex items-center justify-between text-sm font-bold text-[#333844]"><span>🪙 獲得ゴールド</span><span>+{resultInfo.goldGain} G</span></div>
+        <div className="bg-white rounded-3xl shadow-xl p-6 w-full max-w-sm space-y-4">
+          <div className="flex items-center justify-between font-bold text-[#333844] bg-[#F8FAFC] p-4 rounded-2xl">
+            <span className="flex items-center gap-2">⚡ 経験値</span>
+            <span className="text-lg text-[#3B82F6]">+{resultInfo.expGain}</span>
+          </div>
+          <div className="flex items-center justify-between font-bold text-[#333844] bg-[#F8FAFC] p-4 rounded-2xl">
+            <span className="flex items-center gap-2">🪙 ゴールド</span>
+            <span className="text-lg text-[#F59E0B]">+{resultInfo.goldGain}</span>
+          </div>
           {resultInfo.caught && (
-            <div className="flex items-center justify-between text-sm font-bold text-[#333844] pt-2 border-t">
-              <span>新しい仲間！</span>
-              <span className="flex items-center gap-2">{SPECIES[resultInfo.caught].name}{SPECIES[resultInfo.caught].Art({ size: 32 })}</span>
+            <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
+              <div className="text-xs font-bold text-[#10B981] mb-2 text-center">新しい仲間をゲット！</div>
+              <div className="flex items-center justify-center gap-3 bg-[#ECFDF5] p-3 rounded-2xl">
+                {SPECIES[resultInfo.caught].Art({ size: 48 })}
+                <span className="font-bold text-[#065F46]">{SPECIES[resultInfo.caught].name}</span>
+              </div>
             </div>
           )}
-          {resultInfo.areaCleared && <div className="text-xs text-center text-[#FF7A3D] font-bold pt-2 border-t">次のエリアが解放されたかも！レベルを確認しよう</div>}
         </div>
 
-        <button onClick={() => setScreen("map")} className="mt-6 px-8 py-3 rounded-full bg-[#FF7A3D] text-white font-extrabold shadow-md active:scale-95 transition-transform">
+        <button onClick={() => setScreen("map")} className="mt-8 w-full max-w-xs py-4 rounded-2xl bg-[#1E293B] text-white font-extrabold shadow-lg active:scale-95 transition-transform">
           マップにもどる
         </button>
       </div>
@@ -456,59 +591,44 @@ function MathMonsterGame() {
   function CollectionScreen() {
     const all = Object.entries(SPECIES);
     return (
-      <div className="min-h-screen bg-[#FFFBF5] pb-8">
+      <div className="min-h-screen bg-[#F8FAFC] pb-8">
         <TopBar player={player} />
-        <div className="px-4 pt-4">
-          <div className="flex items-center gap-2 mb-1"><span className="text-lg">📖</span><h1 className="text-lg font-extrabold text-[#333844]">モンスター図鑑</h1></div>
-          <p className="text-xs text-[#7A7F8C] mb-4">{ownedSet.size} / {all.length} 体を仲間にした</p>
+        <div className="px-5 pt-6 pb-4 flex justify-between items-end">
+          <div>
+            <h1 className="text-2xl font-extrabold text-[#1E293B]">モンスター図鑑</h1>
+            <p className="text-sm text-[#64748B] mt-1">収集率: {ownedSet.size} / {all.length}</p>
+          </div>
+          <button onClick={() => setScreen("map")} className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-xl font-bold">×</button>
         </div>
-        <div className="px-4 grid grid-cols-2 gap-3">
+        
+        <div className="px-4 grid grid-cols-2 gap-4">
           {all.map(([id, sp]) => {
             const owned = ownedSet.has(id);
-            const isPartner = id === partnerId;
             return (
-              <div key={id} className={`rounded-2xl p-3 shadow-sm flex flex-col items-center ${owned ? "bg-white" : "bg-black/5"}`}>
-                <div className={owned ? "" : "grayscale opacity-30"}>{sp.Art({ size: 80 })}</div>
-                <div className="text-sm font-bold text-[#333844] mt-1">{owned ? sp.name : "？？？"}</div>
+              <div key={id} className={`rounded-3xl p-4 flex flex-col items-center justify-center relative overflow-hidden ${owned ? "bg-white shadow-md" : "bg-gray-100/50 border border-gray-200"}`}>
+                <div className={`transition-all duration-500 ${owned ? "scale-100 drop-shadow-md" : "scale-90 grayscale opacity-20"}`}>
+                  {sp.Art({ size: 80 })}
+                </div>
+                <div className="text-sm font-bold text-[#1E293B] mt-3">{owned ? sp.name : "？？？"}</div>
                 {owned && (
-                  <React.Fragment>
-                    <div className="flex gap-0.5 mt-0.5">{Array.from({ length: sp.rarity }).map((_, i) => <span key={i} className="text-[10px]">⭐</span>)}</div>
-                    {isPartner && <div className="text-[10px] font-bold text-white bg-[#FF7A3D] rounded-full px-2 py-0.5 mt-1">相棒 Lv.{partnerStats.level}</div>}
-                  </React.Fragment>
+                  <div className="flex gap-1 mt-1">
+                    {Array.from({ length: sp.rarity }).map((_, i) => <span key={i} className="text-[10px] text-yellow-400">★</span>)}
+                  </div>
                 )}
               </div>
             );
           })}
-        </div>
-        <div className="px-4 mt-4">
-          <button onClick={() => setScreen("map")} className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#FF7A3D] text-white font-bold shadow-md active:scale-95 transition-transform">
-            🗺️ マップにもどる
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  function PartnerCard() {
-    if (screen !== "map") return null;
-    return (
-      <div className="fixed bottom-4 right-4 bg-white rounded-2xl shadow-lg p-2 flex items-center gap-2">
-        {partner.Art({ size: 48 })}
-        <div className="pr-2">
-          <div className="text-xs font-bold text-[#333844]">{partner.name}</div>
-          <div className="text-[10px] text-[#7A7F8C]">相棒 Lv.{partnerStats.level}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="font-sans max-w-md mx-auto relative bg-[#FFFBF5] min-h-screen shadow-2xl">
+    <div className="font-sans w-full h-[100dvh] mx-auto relative bg-[#F8FAFC] shadow-2xl overflow-hidden sm:max-w-md sm:h-[850px] sm:rounded-[40px] sm:my-8 sm:border-8 sm:border-gray-900">
       {screen === "map" && <MapScreen />}
       {screen === "battle" && <BattleScreen />}
       {screen === "result" && <ResultScreen />}
       {screen === "collection" && <CollectionScreen />}
-      <PartnerCard />
     </div>
   );
 }
