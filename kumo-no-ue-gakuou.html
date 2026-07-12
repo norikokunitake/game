@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>くものうえ 学び王国</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 60%);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    font-family: 'Hiragino Maru Gothic ProN', 'Hiragino Sans', -apple-system, sans-serif;
+  }
+  #root { width: 100%; padding: 16px; }
+  @media (min-width: 480px) {
+    body { align-items: center; }
+    #root { padding: 32px 16px; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+/* =========================================================
+   くものうえ 学び王国
+   雲の上に浮かぶ5つの島をめぐり、教科の精霊となかよくなる
+   中1教材クエスト（あつ森風・スマホ最適化UI）
+   ========================================================= */
+
+const QUESTIONS = {
+  math: [
+    { q: "-8 + 3 の答えは？", choices: ["-5", "5", "-11", "11"], a: 0 },
+    { q: "3x = 21 のとき x は？", choices: ["6", "7", "8", "63"], a: 1 },
+    { q: "(-4) × (-6) の答えは？", choices: ["-24", "24", "-10", "10"], a: 1 },
+    { q: "1/3 + 1/6 を計算すると？", choices: ["1/2", "2/9", "1/9", "2/3"], a: 0 },
+    { q: "正三角形の内角の和は？", choices: ["90°", "180°", "270°", "360°"], a: 1 },
+    { q: "y = 2x のグラフの傾きは？", choices: ["1", "2", "-2", "0"], a: 1 },
+    { q: "7² の値は？", choices: ["14", "49", "77", "21"], a: 1 },
+    { q: "-15 ÷ 3 の答えは？", choices: ["-5", "5", "-45", "45"], a: 0 },
+    { q: "2x - 5 = 9 のとき x は？", choices: ["2", "5", "7", "14"], a: 2 },
+    { q: "対頂角の性質として正しいのは？", choices: ["常に等しい", "常に90°", "和が180°", "和が360°"], a: 0 },
+    { q: "0.4 を分数で表すと？", choices: ["1/4", "2/5", "4/10のまま", "1/40"], a: 1 },
+    { q: "円周率の近似値は？", choices: ["3.10", "3.14", "3.41", "4.13"], a: 1 },
+  ],
+  english: [
+    { q: "「彼女は毎日勉強します」を選べ", choices: ["She study every day.", "She studies every day.", "She studying every day.", "She studyed every day."], a: 1 },
+    { q: "「犬」の複数形は？", choices: ["dogs", "doges", "dogies", "dogs's"], a: 0 },
+    { q: "\"I ___ a student.\" に入る語は？", choices: ["am", "is", "are", "be"], a: 0 },
+    { q: "\"What time is it?\" の意味は？", choices: ["元気ですか", "何時ですか", "どこですか", "誰ですか"], a: 1 },
+    { q: "「これは私の本です」を選べ", choices: ["This is my book.", "This am my book.", "This are my book.", "This is I book."], a: 0 },
+    { q: "\"can\" の意味として正しいのは？", choices: ["〜すべき", "〜できる", "〜したい", "〜している"], a: 1 },
+    { q: "疑問文の作り方は？ \"You like cats.\" →", choices: ["You like cats?", "Do you like cats?", "Are you like cats?", "Like you cats?"], a: 1 },
+    { q: "「大きい」を表す語は？", choices: ["small", "big", "long", "short"], a: 1 },
+    { q: "\"There ___ two cats.\" に入る語は？", choices: ["is", "are", "am", "be"], a: 1 },
+    { q: "「〜しないでください」を表すのは？", choices: ["Please not.", "Don't ~", "Not ~", "No ~ please"], a: 1 },
+    { q: "\"library\" の意味は？", choices: ["図書館", "病院", "学校", "公園"], a: 0 },
+    { q: "3人称単数の動詞変化：\"go\" →", choices: ["goes", "gos", "going", "goed"], a: 0 },
+  ],
+  japanese: [
+    { q: "「明鏡止水」の意味に近いのは？", choices: ["心が静かで澄んでいる", "とても怒っている", "忙しく動き回る", "自信満々である"], a: 0 },
+    { q: "「走る」の活用の種類は？", choices: ["五段活用", "上一段活用", "下一段活用", "カ行変格活用"], a: 0 },
+    { q: "「けれども」の品詞は？", choices: ["接続詞", "副詞", "助詞", "感動詞"], a: 0 },
+    { q: "漢字「垂直」の読みは？", choices: ["すいちょく", "たれちょく", "すいじき", "たれじき"], a: 0 },
+    { q: "「枕草子」の作者は？", choices: ["紫式部", "清少納言", "兼好法師", "松尾芭蕉"], a: 1 },
+    { q: "「主語」とは何を表す言葉？", choices: ["動作や状態の主体", "動作の対象", "場所や時間", "様子を詳しくする語"], a: 0 },
+    { q: "「たとえ雨が降っても行く」の「たとえ」の働きは？", choices: ["仮定を強調する", "原因を示す", "結果を示す", "並列を示す"], a: 0 },
+    { q: "「一期一会」の意味は？", choices: ["一生に一度の出会いを大切にすること", "毎日同じことをすること", "一年に一度会うこと", "初対面の挨拶"], a: 0 },
+    { q: "「静かだ」の品詞は？", choices: ["形容動詞", "形容詞", "動詞", "副詞"], a: 0 },
+    { q: "俳句の音数は？", choices: ["5・7・5", "5・7・7", "7・7・7", "5・5・7"], a: 0 },
+    { q: "「にわか雨」の意味は？", choices: ["急に降り出す雨", "長く降り続く雨", "夜だけ降る雨", "雪まじりの雨"], a: 0 },
+    { q: "「花」を使った比喩で「花形」の意味は？", choices: ["人気者・中心的存在", "花を作る職人", "花の形をしたもの", "花見をすること"], a: 0 },
+  ],
+  social: [
+    { q: "日本の首都は？", choices: ["大阪", "東京", "京都", "名古屋"], a: 1 },
+    { q: "三権分立の「三権」に含まれないのは？", choices: ["立法権", "行政権", "司法権", "選挙権"], a: 3 },
+    { q: "縄文時代の代表的な土器は？", choices: ["弥生土器", "縄文土器", "須恵器", "埴輪"], a: 1 },
+    { q: "日本国憲法の三大原則でないものは？", choices: ["国民主権", "基本的人権の尊重", "平和主義", "天皇主権"], a: 3 },
+    { q: "世界最大の大陸は？", choices: ["アフリカ大陸", "ユーラシア大陸", "北アメリカ大陸", "南極大陸"], a: 1 },
+    { q: "聖徳太子が制定したのは？", choices: ["十七条の憲法", "大宝律令", "武家諸法度", "御成敗式目"], a: 0 },
+    { q: "季節風（モンスーン）の説明として正しいのは？", choices: ["季節によって向きが変わる風", "一年中同じ方向に吹く風", "海だけに吹く風", "台風のこと"], a: 0 },
+    { q: "鎌倉幕府を開いたのは？", choices: ["源頼朝", "足利尊氏", "徳川家康", "織田信長"], a: 0 },
+    { q: "経度0度の基準線が通る都市は？", choices: ["パリ", "ロンドン", "ニューヨーク", "東京"], a: 1 },
+    { q: "大化の改新が始まった年は？", choices: ["645年", "710年", "794年", "1192年"], a: 0 },
+    { q: "地方自治で住民が首長を選ぶ制度は？", choices: ["間接選挙", "直接選挙", "指名制", "抽選制"], a: 1 },
+    { q: "三大穀物に含まれないのは？", choices: ["米", "小麦", "とうもろこし", "大豆"], a: 3 },
+  ],
+  science: [
+    { q: "水の化学式は？", choices: ["H2O", "CO2", "O2", "NaCl"], a: 0 },
+    { q: "光合成を行う植物の部分は？", choices: ["根", "葉", "花", "茎の中心"], a: 1 },
+    { q: "音は何を伝わって届く？", choices: ["振動（波）", "光", "磁力", "熱のみ"], a: 0 },
+    { q: "地震の規模を表す単位は？", choices: ["震度", "マグニチュード", "デシベル", "ヘルツ"], a: 1 },
+    { q: "気体が液体になる変化を何という？", choices: ["蒸発", "凝縮（液化）", "昇華", "凝固"], a: 1 },
+    { q: "植物の細胞に細胞壁があるが、動物細胞には？", choices: ["ある", "ない", "時々ある", "核にだけある"], a: 1 },
+    { q: "電流の単位は？", choices: ["ボルト", "アンペア", "オーム", "ワット"], a: 1 },
+    { q: "酸性・アルカリ性を調べるのに使う紙は？", choices: ["ろ紙", "リトマス紙", "画用紙", "感光紙"], a: 1 },
+    { q: "地層が下から上にできる順番の考え方を何という？", choices: ["整合の法則", "地層累重の法則", "堆積の逆転", "侵食の法則"], a: 1 },
+    { q: "力の大きさの単位は？", choices: ["ニュートン", "パスカル", "ジュール", "ワット"], a: 0 },
+    { q: "食塩水は何と何の混合物？", choices: ["水と食塩", "水と砂糖", "水と炭素", "水と鉄"], a: 0 },
+    { q: "月が地球の周りを回ることを何という？", choices: ["自転", "公転", "他の呼び方はない", "回転運動のみ"], a: 1 },
+  ],
+};
+
+const ISLANDS = [
+  { id: "math", name: "数字の草原島", short: "数学", emoji: "🌾", accent: "#7FB685", accentDark: "#5C9463", bg: "#F1F8EE", spirit: "ナンバっち", sEmoji: "🐰" },
+  { id: "english", name: "ことばの灯台島", short: "英語", emoji: "🏝️", accent: "#8FC1D4", accentDark: "#5E9BB0", bg: "#EEF6F8", spirit: "ワードゥル", sEmoji: "🦉" },
+  { id: "japanese", name: "詩のしずく島", short: "国語", emoji: "🌸", accent: "#E8A0A0", accentDark: "#C97878", bg: "#FBEFEF", spirit: "コトダマン", sEmoji: "💧" },
+  { id: "social", name: "歴史の遺跡島", short: "社会", emoji: "🗿", accent: "#C99A6A", accentDark: "#A87B4E", bg: "#F8F0E4", spirit: "レキシード", sEmoji: "🐢" },
+  { id: "science", name: "ふしぎな実験島", short: "理科", emoji: "🧪", accent: "#B39BD8", accentDark: "#9179B8", bg: "#F3EFF9", spirit: "ジッケンヌ", sEmoji: "🐌" },
+];
+
+const MAX_GENKI = { player: 100, spirit: 80 };
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const CHEER_LINES = ["やったね！", "さすが！", "その調子〜！", "ぴかぴか光った！", "すごいすごい！"];
+const MISS_LINES = ["おしい！", "もういちど いっしょに考えよう", "だいじょうぶ、次いこう", "ちょっとひとやすみ"];
+
+function QuestGame() {
+  const [screen, setScreen] = useState("title");
+  const [friends, setFriends] = useState([]);
+  const [level, setLevel] = useState(1);
+  const [exp, setExp] = useState(0);
+  const [playerGenki, setPlayerGenki] = useState(MAX_GENKI.player);
+  const [spiritGenki, setSpiritGenki] = useState(MAX_GENKI.spirit);
+  const [island, setIsland] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [qIndex, setQIndex] = useState(0);
+  const [choiceState, setChoiceState] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [log, setLog] = useState("");
+  const [wobble, setWobble] = useState(false);
+  const [sparkle, setSparkle] = useState(false);
+  const [combo, setCombo] = useState(0);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+
+  const expToNext = level * 30;
+
+  const startIsland = (islandId) => {
+    const isl = ISLANDS.find((s) => s.id === islandId);
+    setIsland(isl);
+    setQueue(shuffle(QUESTIONS[islandId]).slice(0, 6));
+    setQIndex(0);
+    setPlayerGenki(MAX_GENKI.player);
+    setSpiritGenki(MAX_GENKI.spirit);
+    setCombo(0);
+    setLog(`${isl.spirit} が すがたを あらわした！`);
+    setChoiceState(null);
+    setSelected(null);
+    setScreen("battle");
+  };
+
+  const currentQ = queue[qIndex];
+
+  const answer = (idx) => {
+    if (choiceState) return;
+    setSelected(idx);
+    const correct = idx === currentQ.a;
+    if (correct) {
+      const dmg = 14 + Math.floor(level * 1.5) + combo * 2;
+      setChoiceState("correct");
+      setSparkle(true);
+      setTimeout(() => setSparkle(false), 500);
+      setCombo((c) => c + 1);
+      setSpiritGenki((hp) => Math.max(0, hp - dmg));
+      setLog(`${CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]} ${island.spirit}が びっくり！`);
+    } else {
+      const dmg = 8 + Math.floor(Math.random() * 6);
+      setChoiceState("wrong");
+      setWobble(true);
+      setTimeout(() => setWobble(false), 400);
+      setCombo(0);
+      setPlayerGenki((hp) => Math.max(0, hp - dmg));
+      setLog(`${MISS_LINES[Math.floor(Math.random() * MISS_LINES.length)]} 正かいは「${currentQ.choices[currentQ.a]}」`);
+    }
+  };
+
+  useEffect(() => {
+    if (choiceState === null) return;
+    const t = setTimeout(() => {
+      if (spiritGenki <= 0) {
+        const gained = 20 + level * 4;
+        let newExp = exp + gained;
+        let newLevel = level;
+        let leveled = false;
+        while (newExp >= newLevel * 30) {
+          newExp -= newLevel * 30;
+          newLevel += 1;
+          leveled = true;
+        }
+        setExp(newExp);
+        setLevel(newLevel);
+        setFriends((f) => [...new Set([...f, island.id])]);
+        if (leveled) {
+          setShowLevelUp(true);
+          setTimeout(() => setShowLevelUp(false), 1800);
+        }
+        setScreen("clear");
+        return;
+      }
+      if (playerGenki <= 0) {
+        setScreen("rest");
+        return;
+      }
+      if (qIndex + 1 >= queue.length) {
+        setQueue((q) => [...q, ...shuffle(QUESTIONS[island.id])]);
+      }
+      setQIndex((i) => i + 1);
+      setChoiceState(null);
+      setSelected(null);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [choiceState]);
+
+  const GenkiBar = ({ value, max, color }) => (
+    <div style={{ width: "100%", maxWidth: 120 }}>
+      <div style={{ height: 10, background: "#EDEAE2", borderRadius: 10, overflow: "hidden" }}>
+        <div
+          style={{
+            height: "100%",
+            width: `${Math.max(0, (value / max) * 100)}%`,
+            background: color,
+            transition: "width 0.5s cubic-bezier(.4,0,.2,1)",
+            borderRadius: 10,
+          }}
+        />
+      </div>
+    </div>
+  );
+
+  if (screen === "title") {
+    return (
+      <Shell bg="linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 65%)">
+        <CloudDecor />
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "56px 24px 40px" }}>
+          <div style={{ fontSize: 58, marginBottom: 6 }}>☁️🏰☁️</div>
+          <h1 style={{ fontFamily: "'Hiragino Maru Gothic ProN','Rounded Mplus 1c',sans-serif", fontSize: 26, color: "#3C4A3E", margin: "4px 0 8px", fontWeight: 900, letterSpacing: 1 }}>
+            くものうえ 学び王国
+          </h1>
+          <p style={{ color: "#6b7d6e", fontSize: 13.5, margin: "0 0 30px", lineHeight: 1.7 }}>
+            5つの島をめぐって、教科の精霊たちと<br />なかよくなろう！
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: 14, marginBottom: 34 }}>
+            {ISLANDS.map((s) => (
+              <div key={s.id} style={{ fontSize: 26 }}>{s.sEmoji}</div>
+            ))}
+          </div>
+          <button onClick={() => setScreen("map")} style={roundBtnStyle("#F4C15C", "#3C4A3E")}>
+            🌤️ ぼうけんを はじめる
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (screen === "map") {
+    return (
+      <Shell bg="linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 70%)">
+        <CloudDecor faint />
+        <div style={{ position: "relative", zIndex: 2, padding: "20px 16px 28px" }}>
+          <StatusBar level={level} exp={exp} expToNext={expToNext} friends={friends} />
+          <h2 style={{ textAlign: "center", fontSize: 17, color: "#3C4A3E", margin: "20px 0 16px", fontWeight: 800 }}>
+            島を えらんでね
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {ISLANDS.map((s) => {
+              const done = friends.includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => startIsland(s.id)}
+                  style={{
+                    position: "relative",
+                    background: "#fff",
+                    border: `2px solid ${done ? s.accent : "#F0EEE7"}`,
+                    borderRadius: 20,
+                    padding: "14px 16px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    boxShadow: "0 3px 10px rgba(60,74,62,0.06)",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 54, height: 54, borderRadius: 16, background: s.bg,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 28, flexShrink: 0,
+                    }}
+                  >
+                    {s.emoji}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 800, color: "#3C4A3E" }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: "#9AA69B", marginTop: 1 }}>
+                      {s.sEmoji} {s.spirit}・{s.short}
+                    </div>
+                  </div>
+                  {done ? (
+                    <div style={{ fontSize: 20 }}>💛</div>
+                  ) : (
+                    <div style={{ fontSize: 18, color: "#C9CFC5" }}>→</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {friends.length === ISLANDS.length && (
+            <div style={{ marginTop: 22, textAlign: "center" }}>
+              <button onClick={() => setScreen("allclear")} style={roundBtnStyle("#F4C15C", "#3C4A3E")}>
+                🏆 王国のひろばへ
+              </button>
+            </div>
+          )}
+        </div>
+      </Shell>
+    );
+  }
+
+  if (screen === "battle" && island && currentQ) {
+    return (
+      <Shell bg={`linear-gradient(180deg, ${island.bg} 0%, #FFFDF9 60%)`}>
+        <CloudDecor faint />
+        <div style={{ position: "relative", zIndex: 2, padding: "16px 16px 22px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: island.accentDark }}>{island.emoji} {island.name}</span>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA69B", background: "#fff", padding: "3px 10px", borderRadius: 20 }}>Lv.{level}</span>
+          </div>
+
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 22,
+              padding: "20px 16px 16px",
+              boxShadow: "0 4px 14px rgba(60,74,62,0.08)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {sparkle && <SparkleBurst />}
+            <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-end", marginBottom: 14, gap: 10 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 42 }}>🧑‍🌾</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7d6e", marginTop: 2, marginBottom: 5 }}>勇者</div>
+                <GenkiBar value={playerGenki} max={MAX_GENKI.player} color="#7FB685" />
+                <div style={{ fontSize: 10, color: "#9AA69B", marginTop: 2 }}>げんき {Math.max(0, playerGenki)}</div>
+              </div>
+              <div style={{ fontSize: 18, color: "#DCD6C8" }}>💫</div>
+              <div style={{ textAlign: "center", transform: wobble ? "translateX(0)" : "none", animation: wobble ? "wobbleAnim 0.4s" : "none" }}>
+                <div style={{ fontSize: 42 }}>{island.sEmoji}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7d6e", marginTop: 2, marginBottom: 5 }}>{island.spirit}</div>
+                <GenkiBar value={spiritGenki} max={MAX_GENKI.spirit} color={island.accent} />
+                <div style={{ fontSize: 10, color: "#9AA69B", marginTop: 2 }}>げんき {Math.max(0, spiritGenki)}</div>
+              </div>
+            </div>
+
+            <div style={{ background: island.bg, color: "#3C4A3E", borderRadius: 14, padding: "9px 14px", fontSize: 12.5, minHeight: 36, display: "flex", alignItems: "center", fontWeight: 700 }}>
+              {log}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14, background: "#fff", borderRadius: 20, padding: "16px 16px 14px", boxShadow: "0 4px 14px rgba(60,74,62,0.08)" }}>
+            {combo > 1 && (
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#F4C15C", marginBottom: 6 }}>
+                ✨ {combo}れん続 正かい中！
+              </div>
+            )}
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#3C4A3E", marginBottom: 14, lineHeight: 1.55 }}>
+              {currentQ.q}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {currentQ.choices.map((c, i) => {
+                let bg = "#FAF9F5";
+                let border = "#F0EEE7";
+                let color = "#3C4A3E";
+                if (choiceState) {
+                  if (i === currentQ.a) {
+                    bg = "#EAF4EA"; border = "#7FB685";
+                  } else if (i === selected) {
+                    bg = "#FAECEA"; border = "#E0A79A";
+                  }
+                }
+                return (
+                  <button
+                    key={i}
+                    disabled={!!choiceState}
+                    onClick={() => answer(i)}
+                    style={{
+                      background: bg,
+                      border: `2px solid ${border}`,
+                      borderRadius: 14,
+                      padding: "13px 14px",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color,
+                      cursor: choiceState ? "default" : "pointer",
+                      textAlign: "left",
+                      transition: "background 0.2s, border-color 0.2s",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {showLevelUp && (
+          <div style={{
+            position: "absolute", inset: 0, background: "rgba(60,74,62,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 28, zIndex: 10,
+          }}>
+            <div style={{ background: "#fff", borderRadius: 22, padding: "26px 32px", textAlign: "center" }}>
+              <div style={{ fontSize: 40 }}>🌟</div>
+              <div style={{ fontWeight: 900, fontSize: 17, color: "#3C4A3E" }}>レベルアップ！</div>
+              <div style={{ fontSize: 12.5, color: "#9AA69B" }}>Lv.{level} になった</div>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          @keyframes wobbleAnim {
+            0%,100% { transform: translateX(0) rotate(0); }
+            25% { transform: translateX(-4px) rotate(-4deg); }
+            75% { transform: translateX(4px) rotate(4deg); }
+          }
+        `}</style>
+      </Shell>
+    );
+  }
+
+  if (screen === "clear" && island) {
+    return (
+      <Shell bg={`linear-gradient(180deg, ${island.bg} 0%, #FFFDF9 60%)`}>
+        <CloudDecor faint />
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "54px 24px" }}>
+          <div style={{ fontSize: 54 }}>{island.sEmoji}💛</div>
+          <h2 style={{ color: "#3C4A3E", fontSize: 19, margin: "10px 0 4px", fontWeight: 900 }}>
+            {island.spirit} と なかよくなった！
+          </h2>
+          <p style={{ color: "#9AA69B", fontSize: 12.5, marginBottom: 24 }}>{island.name}・クリア</p>
+          <div style={{ background: "#fff", borderRadius: 18, padding: "14px 22px", display: "inline-block", marginBottom: 28, boxShadow: "0 4px 14px rgba(60,74,62,0.06)" }}>
+            <div style={{ fontSize: 12.5, color: "#6b7d6e", fontWeight: 700 }}>Lv.{level} ・ EXP {exp}/{expToNext}</div>
+          </div>
+          <div>
+            <button onClick={() => setScreen("map")} style={roundBtnStyle(island.accent, "#fff")}>
+              ☁️ 島マップへ もどる
+            </button>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (screen === "rest") {
+    return (
+      <Shell bg="linear-gradient(180deg, #EFEAF6 0%, #FFF8EC 70%)">
+        <CloudDecor faint />
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "54px 24px" }}>
+          <div style={{ fontSize: 54 }}>💤🛏️</div>
+          <h2 style={{ color: "#3C4A3E", fontSize: 19, margin: "10px 0 4px", fontWeight: 900 }}>ちょっと ひとやすみ</h2>
+          <p style={{ color: "#9AA69B", fontSize: 12.5, marginBottom: 24, lineHeight: 1.7 }}>げんきが なくなっちゃった…<br />また ちょうせんしてみよう！</p>
+          <button onClick={() => setScreen("map")} style={roundBtnStyle("#F4C15C", "#3C4A3E")}>
+            ☁️ 島マップへ もどる
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (screen === "allclear") {
+    return (
+      <Shell bg="linear-gradient(180deg, #FFF3D6 0%, #FFF8EC 65%)">
+        <CloudDecor />
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "54px 24px" }}>
+          <div style={{ fontSize: 60 }}>🏆</div>
+          <h2 style={{ color: "#3C4A3E", fontSize: 21, margin: "10px 0 4px", fontWeight: 900 }}>王国の なかまが そろった！</h2>
+          <p style={{ color: "#6b7d6e", fontSize: 13, marginBottom: 22, lineHeight: 1.7 }}>
+            5つの島の精霊 みんなと なかよくなった！<br />Lv.{level} の勇者になったよ。
+          </p>
+          <div style={{ fontSize: 28, marginBottom: 26 }}>
+            {ISLANDS.map((s) => <span key={s.id} style={{ margin: "0 5px" }}>{s.sEmoji}</span>)}
+          </div>
+          <button
+            onClick={() => { setScreen("title"); setFriends([]); setLevel(1); setExp(0); }}
+            style={roundBtnStyle("#F4C15C", "#3C4A3E")}
+          >
+            🔁 さいしょから あそぶ
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  return null;
+}
+
+function StatusBar({ level, exp, expToNext, friends }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 18, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 3px 10px rgba(60,74,62,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 24 }}>🧑‍🌾</div>
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#3C4A3E" }}>勇者 Lv.{level}</div>
+          <div style={{ fontSize: 10.5, color: "#9AA69B" }}>EXP {exp}/{expToNext} ・ なかま {friends.length}/5</div>
+        </div>
+      </div>
+      <div style={{ width: 84 }}>
+        <div style={{ height: 8, background: "#EDEAE2", borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${(exp / expToNext) * 100}%`, background: "#F4C15C", borderRadius: 8, transition: "width 0.5s" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CloudDecor({ faint = false }) {
+  const op = faint ? 0.5 : 1;
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 1 }}>
+      <div style={{ position: "absolute", top: 20, left: -10, fontSize: 34, opacity: op }}>☁️</div>
+      <div style={{ position: "absolute", top: 70, right: -6, fontSize: 26, opacity: op * 0.8 }}>☁️</div>
+      <div style={{ position: "absolute", bottom: 30, left: 10, fontSize: 22, opacity: op * 0.6 }}>☁️</div>
+      <div style={{ position: "absolute", top: 130, left: "45%", fontSize: 18, opacity: op * 0.5 }}>✨</div>
+    </div>
+  );
+}
+
+function SparkleBurst() {
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 3 }}>
+      {["10%", "30%", "60%", "80%", "45%"].map((left, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left,
+            top: `${20 + (i % 3) * 20}%`,
+            fontSize: 16,
+            animation: `sparkleFloat 0.6s ease-out ${i * 0.05}s`,
+            opacity: 0,
+          }}
+        >
+          ✨
+        </div>
+      ))}
+      <style>{`
+        @keyframes sparkleFloat {
+          0% { opacity: 0; transform: translateY(0) scale(0.5); }
+          40% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+          100% { opacity: 0; transform: translateY(-24px) scale(0.9); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function Shell({ children, bg }) {
+  return (
+    <div
+      style={{
+        fontFamily: "'Hiragino Maru Gothic ProN','Hiragino Sans', -apple-system, sans-serif",
+        width: "100%",
+        maxWidth: 420,
+        margin: "0 auto",
+        minHeight: 640,
+        background: bg,
+        borderRadius: 28,
+        position: "relative",
+        boxShadow: "0 10px 34px rgba(60,74,62,0.12)",
+        overflow: "hidden",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function roundBtnStyle(bg, textColor) {
+  return {
+    background: bg,
+    color: textColor,
+    border: "none",
+    borderRadius: 999,
+    padding: "14px 30px",
+    fontSize: 14.5,
+    fontWeight: 800,
+    cursor: "pointer",
+    boxShadow: "0 4px 0 rgba(60,74,62,0.15)",
+    letterSpacing: 0.3,
+    WebkitTapHighlightColor: "transparent",
+  };
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<QuestGame />);
+</script>
+</body>
+</html>
