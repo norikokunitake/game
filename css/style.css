@@ -1,0 +1,156 @@
+/* =========================================================
+   くものうえ 学び王国 - style.css
+   配色：やさしい自然色 → 中間ポップパレットへ更新
+   夕日オレンジ・ラムネブルー・ターコイズ・レモンイエローを
+   アクセントとして加え、彩度とコントラストを一段階上げた
+   ========================================================= */
+
+:root {
+  /* ベース（背景・紙面） */
+  --bg-sky: #CDEAF7;
+  --bg-cream: #FFF6E4;
+  --bg-paper: #FFFFFF;
+
+  /* テキスト */
+  --text-main: #33424A;
+  --text-sub: #7C8B87;
+  --text-faint: #B8C4BE;
+
+  /* ポップアクセント（新規追加・中間パレット） */
+  --pop-sunset: #FF9166;   /* 夕日オレンジ */
+  --pop-lemon:  #FFD65C;   /* レモンイエロー */
+  --pop-lamune: #57B8E0;   /* ラムネブルー */
+  --pop-turq:   #35C2A6;   /* ターコイズ */
+  --pop-berry:  #F2668B;   /* ベリーピンク */
+
+  /* 教科カラー（彩度アップ版） */
+  --sub-math-a: #4FAE72;   --sub-math-d: #2F8A54;   --sub-math-bg: #E4F7EB;
+  --sub-eng-a:  #3FA9D6;   --sub-eng-d:  #1E86B4;   --sub-eng-bg:  #E3F4FA;
+  --sub-jp-a:   #F2668B;   --sub-jp-d:   #D4436B;   --sub-jp-bg:   #FDE9EE;
+  --sub-soc-a:  #E0A23C;   --sub-soc-d:  #B87F22;   --sub-soc-bg:  #FBF0DC;
+  --sub-sci-a:  #9B72D6;   --sub-sci-d:  #7A50B8;   --sub-sci-bg:  #F1E9FA;
+
+  --shadow-soft: 0 4px 14px rgba(51,66,74,0.10);
+  --shadow-btn: 0 4px 0 rgba(51,66,74,0.18);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: linear-gradient(180deg, var(--bg-sky) 0%, var(--bg-cream) 60%);
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-family: 'Hiragino Maru Gothic ProN', 'Hiragino Sans', -apple-system, sans-serif;
+  color: var(--text-main);
+}
+
+#root { width: 100%; padding: 16px; }
+
+@media (min-width: 480px) {
+  body { align-items: center; }
+  #root { padding: 32px 16px; }
+}
+
+button { font-family: inherit; }
+
+.shell {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  min-height: 640px;
+  border-radius: 28px;
+  position: relative;
+  box-shadow: 0 10px 34px rgba(51,66,74,0.14);
+  overflow: hidden;
+}
+
+.cloud-decor { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.cloud-decor span { position: absolute; }
+.content { position: relative; z-index: 2; }
+.scrollable { max-height: 640px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* タイトル見出し：元気な太字＋わずかな傾き・縁取り感 */
+.app-title {
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: var(--text-main);
+  text-shadow: 2px 2px 0 rgba(255,255,255,0.6);
+}
+
+.round-btn {
+  border: none; border-radius: 999px; padding: 14px 30px;
+  font-size: 14.5px; font-weight: 800; cursor: pointer;
+  box-shadow: var(--shadow-btn); letter-spacing: 0.3px;
+}
+.round-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+.round-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(51,66,74,0.18); }
+
+.small-btn {
+  border: none; border-radius: 999px; padding: 8px 16px;
+  font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.small-btn:active { transform: translateY(1px); }
+
+.card {
+  background: var(--bg-paper); border-radius: 20px; box-shadow: var(--shadow-soft);
+}
+
+.choice-btn {
+  border-radius: 14px; padding: 13px 14px; font-size: 14px; font-weight: 700;
+  text-align: left; transition: background 0.15s, border-color 0.15s, transform 0.1s; cursor: pointer;
+  width: 100%; border: 2px solid #F0EEE7; background: #FAF9F5; color: var(--text-main);
+}
+.choice-btn:active:not(:disabled) { transform: scale(0.98); }
+
+.genki-bar-track { height: 10px; background: #EDEAE2; border-radius: 10px; overflow: hidden; }
+.genki-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+
+@keyframes wobbleAnim {
+  0%,100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-4px) rotate(-4deg); }
+  75% { transform: translateX(4px) rotate(4deg); }
+}
+.wobble { animation: wobbleAnim 0.4s; }
+
+@keyframes sparkleFloat {
+  0% { opacity: 0; transform: translateY(0) scale(0.5); }
+  40% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-24px) scale(0.9); }
+}
+
+.tab-btn {
+  flex: 1; text-align: center; padding: 10px 4px; font-size: 12.5px; font-weight: 800;
+  border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent;
+  color: var(--text-sub);
+}
+.tab-btn.active { color: var(--text-main); border-bottom-color: var(--pop-lemon); }
+
+.review-item {
+  background: #FAF9F5; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;
+  border: 1.5px solid #F0EEE7;
+}
+
+.island-card {
+  position: relative;
+  background: #fff;
+  border-radius: 20px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-soft);
+  width: 100%;
+  border: 2px solid #F0EEE7;
+}
+.island-card:active { transform: scale(0.99); }
+
+.island-icon {
+  width: 54px; height: 54px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; flex-shrink: 0;
+}
