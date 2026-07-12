@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -20,24 +21,95 @@
     body { align-items: center; }
     #root { padding: 32px 16px; }
   }
+  button { font-family: inherit; }
+
+  .shell {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 640px;
+    border-radius: 28px;
+    position: relative;
+    box-shadow: 0 10px 34px rgba(60,74,62,0.12);
+    overflow: hidden;
+  }
+  .cloud-decor {
+    position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1;
+  }
+  .cloud-decor span { position: absolute; }
+  .content { position: relative; z-index: 2; }
+
+  .round-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 14px 30px;
+    font-size: 14.5px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(60,74,62,0.15);
+    letter-spacing: 0.3px;
+  }
+
+  .island-card {
+    position: relative;
+    background: #fff;
+    border-radius: 20px;
+    padding: 14px 16px;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 3px 10px rgba(60,74,62,0.06);
+    width: 100%;
+    border: 2px solid #F0EEE7;
+  }
+  .island-icon {
+    width: 54px; height: 54px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; flex-shrink: 0;
+  }
+
+  .choice-btn {
+    border-radius: 14px;
+    padding: 13px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: left;
+    transition: background 0.2s, border-color 0.2s;
+    cursor: pointer;
+    width: 100%;
+    border: 2px solid #F0EEE7;
+    background: #FAF9F5;
+    color: #3C4A3E;
+  }
+
+  .genki-bar-track {
+    height: 10px; background: #EDEAE2; border-radius: 10px; overflow: hidden;
+  }
+  .genki-bar-fill {
+    height: 100%; border-radius: 10px;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  }
+
+  @keyframes wobbleAnim {
+    0%,100% { transform: translateX(0) rotate(0); }
+    25% { transform: translateX(-4px) rotate(-4deg); }
+    75% { transform: translateX(4px) rotate(4deg); }
+  }
+  .wobble { animation: wobbleAnim 0.4s; }
+
+  @keyframes sparkleFloat {
+    0% { opacity: 0; transform: translateY(0) scale(0.5); }
+    40% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-24px) scale(0.9); }
+  }
 </style>
 </head>
 <body>
 <div id="root"></div>
 
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<script type="text/babel" data-presets="react">
-const { useState, useEffect } = React;
-
-/* =========================================================
-   くものうえ 学び王国
-   雲の上に浮かぶ5つの島をめぐり、教科の精霊となかよくなる
-   中1教材クエスト（あつ森風・スマホ最適化UI）
-   ========================================================= */
-
+<script>
 const QUESTIONS = {
   math: [
     { q: "-8 + 3 の答えは？", choices: ["-5", "5", "-11", "11"], a: 0 },
@@ -120,503 +192,344 @@ const ISLANDS = [
 ];
 
 const MAX_GENKI = { player: 100, spirit: 80 };
+const CHEER_LINES = ["やったね！", "さすが！", "その調子〜！", "ぴかぴか光った！", "すごいすごい！"];
+const MISS_LINES = ["おしい！", "もういちど いっしょに考えよう", "だいじょうぶ、次いこう", "ちょっとひとやすみ"];
 
 function shuffle(arr) {
-  const a = [...arr];
+  const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
   }
   return a;
 }
 
-const CHEER_LINES = ["やったね！", "さすが！", "その調子〜！", "ぴかぴか光った！", "すごいすごい！"];
-const MISS_LINES = ["おしい！", "もういちど いっしょに考えよう", "だいじょうぶ、次いこう", "ちょっとひとやすみ"];
+const state = {
+  screen: "title",
+  friends: [],
+  level: 1,
+  exp: 0,
+  playerGenki: MAX_GENKI.player,
+  spiritGenki: MAX_GENKI.spirit,
+  island: null,
+  queue: [],
+  qIndex: 0,
+  choiceState: null,
+  selected: null,
+  log: "",
+  combo: 0,
+};
 
-function QuestGame() {
-  const [screen, setScreen] = useState("title");
-  const [friends, setFriends] = useState([]);
-  const [level, setLevel] = useState(1);
-  const [exp, setExp] = useState(0);
-  const [playerGenki, setPlayerGenki] = useState(MAX_GENKI.player);
-  const [spiritGenki, setSpiritGenki] = useState(MAX_GENKI.spirit);
-  const [island, setIsland] = useState(null);
-  const [queue, setQueue] = useState([]);
-  const [qIndex, setQIndex] = useState(0);
-  const [choiceState, setChoiceState] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [log, setLog] = useState("");
-  const [wobble, setWobble] = useState(false);
-  const [sparkle, setSparkle] = useState(false);
-  const [combo, setCombo] = useState(0);
-  const [showLevelUp, setShowLevelUp] = useState(false);
+function expToNext() { return state.level * 30; }
 
-  const expToNext = level * 30;
+function startIsland(islandId) {
+  const isl = ISLANDS.filter(function (s) { return s.id === islandId; })[0];
+  state.island = isl;
+  state.queue = shuffle(QUESTIONS[islandId]).slice(0, 6);
+  state.qIndex = 0;
+  state.playerGenki = MAX_GENKI.player;
+  state.spiritGenki = MAX_GENKI.spirit;
+  state.combo = 0;
+  state.log = isl.spirit + " が すがたを あらわした！";
+  state.choiceState = null;
+  state.selected = null;
+  state.screen = "battle";
+  render();
+}
 
-  const startIsland = (islandId) => {
-    const isl = ISLANDS.find((s) => s.id === islandId);
-    setIsland(isl);
-    setQueue(shuffle(QUESTIONS[islandId]).slice(0, 6));
-    setQIndex(0);
-    setPlayerGenki(MAX_GENKI.player);
-    setSpiritGenki(MAX_GENKI.spirit);
-    setCombo(0);
-    setLog(`${isl.spirit} が すがたを あらわした！`);
-    setChoiceState(null);
-    setSelected(null);
-    setScreen("battle");
-  };
+function currentQ() { return state.queue[state.qIndex]; }
 
-  const currentQ = queue[qIndex];
+function answer(idx) {
+  if (state.choiceState) return;
+  state.selected = idx;
+  const q = currentQ();
+  const correct = idx === q.a;
+  if (correct) {
+    const dmg = 14 + Math.floor(state.level * 1.5) + state.combo * 2;
+    state.choiceState = "correct";
+    state.combo += 1;
+    state.spiritGenki = Math.max(0, state.spiritGenki - dmg);
+    state.log = CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)] + " " + state.island.spirit + "が びっくり！";
+    render();
+    triggerSparkle();
+  } else {
+    const dmg = 8 + Math.floor(Math.random() * 6);
+    state.choiceState = "wrong";
+    state.combo = 0;
+    state.playerGenki = Math.max(0, state.playerGenki - dmg);
+    state.log = MISS_LINES[Math.floor(Math.random() * MISS_LINES.length)] + " 正かいは「" + q.choices[q.a] + "」";
+    render();
+    triggerWobble();
+  }
 
-  const answer = (idx) => {
-    if (choiceState) return;
-    setSelected(idx);
-    const correct = idx === currentQ.a;
-    if (correct) {
-      const dmg = 14 + Math.floor(level * 1.5) + combo * 2;
-      setChoiceState("correct");
-      setSparkle(true);
-      setTimeout(() => setSparkle(false), 500);
-      setCombo((c) => c + 1);
-      setSpiritGenki((hp) => Math.max(0, hp - dmg));
-      setLog(`${CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]} ${island.spirit}が びっくり！`);
-    } else {
-      const dmg = 8 + Math.floor(Math.random() * 6);
-      setChoiceState("wrong");
-      setWobble(true);
-      setTimeout(() => setWobble(false), 400);
-      setCombo(0);
-      setPlayerGenki((hp) => Math.max(0, hp - dmg));
-      setLog(`${MISS_LINES[Math.floor(Math.random() * MISS_LINES.length)]} 正かいは「${currentQ.choices[currentQ.a]}」`);
+  setTimeout(function () {
+    if (state.spiritGenki <= 0) {
+      const gained = 20 + state.level * 4;
+      let newExp = state.exp + gained;
+      let newLevel = state.level;
+      let leveled = false;
+      while (newExp >= newLevel * 30) {
+        newExp -= newLevel * 30;
+        newLevel += 1;
+        leveled = true;
+      }
+      state.exp = newExp;
+      state.level = newLevel;
+      if (state.friends.indexOf(state.island.id) === -1) state.friends.push(state.island.id);
+      state.screen = "clear";
+      render();
+      if (leveled) showLevelUpOverlay();
+      return;
     }
-  };
-
-  useEffect(() => {
-    if (choiceState === null) return;
-    const t = setTimeout(() => {
-      if (spiritGenki <= 0) {
-        const gained = 20 + level * 4;
-        let newExp = exp + gained;
-        let newLevel = level;
-        let leveled = false;
-        while (newExp >= newLevel * 30) {
-          newExp -= newLevel * 30;
-          newLevel += 1;
-          leveled = true;
-        }
-        setExp(newExp);
-        setLevel(newLevel);
-        setFriends((f) => [...new Set([...f, island.id])]);
-        if (leveled) {
-          setShowLevelUp(true);
-          setTimeout(() => setShowLevelUp(false), 1800);
-        }
-        setScreen("clear");
-        return;
-      }
-      if (playerGenki <= 0) {
-        setScreen("rest");
-        return;
-      }
-      if (qIndex + 1 >= queue.length) {
-        setQueue((q) => [...q, ...shuffle(QUESTIONS[island.id])]);
-      }
-      setQIndex((i) => i + 1);
-      setChoiceState(null);
-      setSelected(null);
-    }, 1200);
-    return () => clearTimeout(t);
-  }, [choiceState]);
-
-  const GenkiBar = ({ value, max, color }) => (
-    <div style={{ width: "100%", maxWidth: 120 }}>
-      <div style={{ height: 10, background: "#EDEAE2", borderRadius: 10, overflow: "hidden" }}>
-        <div
-          style={{
-            height: "100%",
-            width: `${Math.max(0, (value / max) * 100)}%`,
-            background: color,
-            transition: "width 0.5s cubic-bezier(.4,0,.2,1)",
-            borderRadius: 10,
-          }}
-        />
-      </div>
-    </div>
-  );
-
-  if (screen === "title") {
-    return (
-      <Shell bg="linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 65%)">
-        <CloudDecor />
-        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "56px 24px 40px" }}>
-          <div style={{ fontSize: 58, marginBottom: 6 }}>☁️🏰☁️</div>
-          <h1 style={{ fontFamily: "'Hiragino Maru Gothic ProN','Rounded Mplus 1c',sans-serif", fontSize: 26, color: "#3C4A3E", margin: "4px 0 8px", fontWeight: 900, letterSpacing: 1 }}>
-            くものうえ 学び王国
-          </h1>
-          <p style={{ color: "#6b7d6e", fontSize: 13.5, margin: "0 0 30px", lineHeight: 1.7 }}>
-            5つの島をめぐって、教科の精霊たちと<br />なかよくなろう！
-          </p>
-          <div style={{ display: "flex", justifyContent: "center", gap: 14, marginBottom: 34 }}>
-            {ISLANDS.map((s) => (
-              <div key={s.id} style={{ fontSize: 26 }}>{s.sEmoji}</div>
-            ))}
-          </div>
-          <button onClick={() => setScreen("map")} style={roundBtnStyle("#F4C15C", "#3C4A3E")}>
-            🌤️ ぼうけんを はじめる
-          </button>
-        </div>
-      </Shell>
-    );
-  }
-
-  if (screen === "map") {
-    return (
-      <Shell bg="linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 70%)">
-        <CloudDecor faint />
-        <div style={{ position: "relative", zIndex: 2, padding: "20px 16px 28px" }}>
-          <StatusBar level={level} exp={exp} expToNext={expToNext} friends={friends} />
-          <h2 style={{ textAlign: "center", fontSize: 17, color: "#3C4A3E", margin: "20px 0 16px", fontWeight: 800 }}>
-            島を えらんでね
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {ISLANDS.map((s) => {
-              const done = friends.includes(s.id);
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => startIsland(s.id)}
-                  style={{
-                    position: "relative",
-                    background: "#fff",
-                    border: `2px solid ${done ? s.accent : "#F0EEE7"}`,
-                    borderRadius: 20,
-                    padding: "14px 16px",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    boxShadow: "0 3px 10px rgba(60,74,62,0.06)",
-                    WebkitTapHighlightColor: "transparent",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 54, height: 54, borderRadius: 16, background: s.bg,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 28, flexShrink: 0,
-                    }}
-                  >
-                    {s.emoji}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 800, color: "#3C4A3E" }}>{s.name}</div>
-                    <div style={{ fontSize: 12, color: "#9AA69B", marginTop: 1 }}>
-                      {s.sEmoji} {s.spirit}・{s.short}
-                    </div>
-                  </div>
-                  {done ? (
-                    <div style={{ fontSize: 20 }}>💛</div>
-                  ) : (
-                    <div style={{ fontSize: 18, color: "#C9CFC5" }}>→</div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {friends.length === ISLANDS.length && (
-            <div style={{ marginTop: 22, textAlign: "center" }}>
-              <button onClick={() => setScreen("allclear")} style={roundBtnStyle("#F4C15C", "#3C4A3E")}>
-                🏆 王国のひろばへ
-              </button>
-            </div>
-          )}
-        </div>
-      </Shell>
-    );
-  }
-
-  if (screen === "battle" && island && currentQ) {
-    return (
-      <Shell bg={`linear-gradient(180deg, ${island.bg} 0%, #FFFDF9 60%)`}>
-        <CloudDecor faint />
-        <div style={{ position: "relative", zIndex: 2, padding: "16px 16px 22px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 800, color: island.accentDark }}>{island.emoji} {island.name}</span>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#9AA69B", background: "#fff", padding: "3px 10px", borderRadius: 20 }}>Lv.{level}</span>
-          </div>
-
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 22,
-              padding: "20px 16px 16px",
-              boxShadow: "0 4px 14px rgba(60,74,62,0.08)",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {sparkle && <SparkleBurst />}
-            <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-end", marginBottom: 14, gap: 10 }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 42 }}>🧑‍🌾</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7d6e", marginTop: 2, marginBottom: 5 }}>勇者</div>
-                <GenkiBar value={playerGenki} max={MAX_GENKI.player} color="#7FB685" />
-                <div style={{ fontSize: 10, color: "#9AA69B", marginTop: 2 }}>げんき {Math.max(0, playerGenki)}</div>
-              </div>
-              <div style={{ fontSize: 18, color: "#DCD6C8" }}>💫</div>
-              <div style={{ textAlign: "center", transform: wobble ? "translateX(0)" : "none", animation: wobble ? "wobbleAnim 0.4s" : "none" }}>
-                <div style={{ fontSize: 42 }}>{island.sEmoji}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7d6e", marginTop: 2, marginBottom: 5 }}>{island.spirit}</div>
-                <GenkiBar value={spiritGenki} max={MAX_GENKI.spirit} color={island.accent} />
-                <div style={{ fontSize: 10, color: "#9AA69B", marginTop: 2 }}>げんき {Math.max(0, spiritGenki)}</div>
-              </div>
-            </div>
-
-            <div style={{ background: island.bg, color: "#3C4A3E", borderRadius: 14, padding: "9px 14px", fontSize: 12.5, minHeight: 36, display: "flex", alignItems: "center", fontWeight: 700 }}>
-              {log}
-            </div>
-          </div>
-
-          <div style={{ marginTop: 14, background: "#fff", borderRadius: 20, padding: "16px 16px 14px", boxShadow: "0 4px 14px rgba(60,74,62,0.08)" }}>
-            {combo > 1 && (
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#F4C15C", marginBottom: 6 }}>
-                ✨ {combo}れん続 正かい中！
-              </div>
-            )}
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#3C4A3E", marginBottom: 14, lineHeight: 1.55 }}>
-              {currentQ.q}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {currentQ.choices.map((c, i) => {
-                let bg = "#FAF9F5";
-                let border = "#F0EEE7";
-                let color = "#3C4A3E";
-                if (choiceState) {
-                  if (i === currentQ.a) {
-                    bg = "#EAF4EA"; border = "#7FB685";
-                  } else if (i === selected) {
-                    bg = "#FAECEA"; border = "#E0A79A";
-                  }
-                }
-                return (
-                  <button
-                    key={i}
-                    disabled={!!choiceState}
-                    onClick={() => answer(i)}
-                    style={{
-                      background: bg,
-                      border: `2px solid ${border}`,
-                      borderRadius: 14,
-                      padding: "13px 14px",
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color,
-                      cursor: choiceState ? "default" : "pointer",
-                      textAlign: "left",
-                      transition: "background 0.2s, border-color 0.2s",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                  >
-                    {c}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {showLevelUp && (
-          <div style={{
-            position: "absolute", inset: 0, background: "rgba(60,74,62,0.45)",
-            display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 28, zIndex: 10,
-          }}>
-            <div style={{ background: "#fff", borderRadius: 22, padding: "26px 32px", textAlign: "center" }}>
-              <div style={{ fontSize: 40 }}>🌟</div>
-              <div style={{ fontWeight: 900, fontSize: 17, color: "#3C4A3E" }}>レベルアップ！</div>
-              <div style={{ fontSize: 12.5, color: "#9AA69B" }}>Lv.{level} になった</div>
-            </div>
-          </div>
-        )}
-
-        <style>{`
-          @keyframes wobbleAnim {
-            0%,100% { transform: translateX(0) rotate(0); }
-            25% { transform: translateX(-4px) rotate(-4deg); }
-            75% { transform: translateX(4px) rotate(4deg); }
-          }
-        `}</style>
-      </Shell>
-    );
-  }
-
-  if (screen === "clear" && island) {
-    return (
-      <Shell bg={`linear-gradient(180deg, ${island.bg} 0%, #FFFDF9 60%)`}>
-        <CloudDecor faint />
-        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "54px 24px" }}>
-          <div style={{ fontSize: 54 }}>{island.sEmoji}💛</div>
-          <h2 style={{ color: "#3C4A3E", fontSize: 19, margin: "10px 0 4px", fontWeight: 900 }}>
-            {island.spirit} と なかよくなった！
-          </h2>
-          <p style={{ color: "#9AA69B", fontSize: 12.5, marginBottom: 24 }}>{island.name}・クリア</p>
-          <div style={{ background: "#fff", borderRadius: 18, padding: "14px 22px", display: "inline-block", marginBottom: 28, boxShadow: "0 4px 14px rgba(60,74,62,0.06)" }}>
-            <div style={{ fontSize: 12.5, color: "#6b7d6e", fontWeight: 700 }}>Lv.{level} ・ EXP {exp}/{expToNext}</div>
-          </div>
-          <div>
-            <button onClick={() => setScreen("map")} style={roundBtnStyle(island.accent, "#fff")}>
-              ☁️ 島マップへ もどる
-            </button>
-          </div>
-        </div>
-      </Shell>
-    );
-  }
-
-  if (screen === "rest") {
-    return (
-      <Shell bg="linear-gradient(180deg, #EFEAF6 0%, #FFF8EC 70%)">
-        <CloudDecor faint />
-        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "54px 24px" }}>
-          <div style={{ fontSize: 54 }}>💤🛏️</div>
-          <h2 style={{ color: "#3C4A3E", fontSize: 19, margin: "10px 0 4px", fontWeight: 900 }}>ちょっと ひとやすみ</h2>
-          <p style={{ color: "#9AA69B", fontSize: 12.5, marginBottom: 24, lineHeight: 1.7 }}>げんきが なくなっちゃった…<br />また ちょうせんしてみよう！</p>
-          <button onClick={() => setScreen("map")} style={roundBtnStyle("#F4C15C", "#3C4A3E")}>
-            ☁️ 島マップへ もどる
-          </button>
-        </div>
-      </Shell>
-    );
-  }
-
-  if (screen === "allclear") {
-    return (
-      <Shell bg="linear-gradient(180deg, #FFF3D6 0%, #FFF8EC 65%)">
-        <CloudDecor />
-        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "54px 24px" }}>
-          <div style={{ fontSize: 60 }}>🏆</div>
-          <h2 style={{ color: "#3C4A3E", fontSize: 21, margin: "10px 0 4px", fontWeight: 900 }}>王国の なかまが そろった！</h2>
-          <p style={{ color: "#6b7d6e", fontSize: 13, marginBottom: 22, lineHeight: 1.7 }}>
-            5つの島の精霊 みんなと なかよくなった！<br />Lv.{level} の勇者になったよ。
-          </p>
-          <div style={{ fontSize: 28, marginBottom: 26 }}>
-            {ISLANDS.map((s) => <span key={s.id} style={{ margin: "0 5px" }}>{s.sEmoji}</span>)}
-          </div>
-          <button
-            onClick={() => { setScreen("title"); setFriends([]); setLevel(1); setExp(0); }}
-            style={roundBtnStyle("#F4C15C", "#3C4A3E")}
-          >
-            🔁 さいしょから あそぶ
-          </button>
-        </div>
-      </Shell>
-    );
-  }
-
-  return null;
+    if (state.playerGenki <= 0) {
+      state.screen = "rest";
+      render();
+      return;
+    }
+    if (state.qIndex + 1 >= state.queue.length) {
+      state.queue = state.queue.concat(shuffle(QUESTIONS[state.island.id]));
+    }
+    state.qIndex += 1;
+    state.choiceState = null;
+    state.selected = null;
+    render();
+  }, 1200);
 }
 
-function StatusBar({ level, exp, expToNext, friends }) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 18, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 3px 10px rgba(60,74,62,0.06)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 24 }}>🧑‍🌾</div>
-        <div>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#3C4A3E" }}>勇者 Lv.{level}</div>
-          <div style={{ fontSize: 10.5, color: "#9AA69B" }}>EXP {exp}/{expToNext} ・ なかま {friends.length}/5</div>
-        </div>
-      </div>
-      <div style={{ width: 84 }}>
-        <div style={{ height: 8, background: "#EDEAE2", borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${(exp / expToNext) * 100}%`, background: "#F4C15C", borderRadius: 8, transition: "width 0.5s" }} />
-        </div>
-      </div>
-    </div>
-  );
+function triggerWobble() {
+  const el = document.querySelector(".spirit-figure");
+  if (el) {
+    el.classList.remove("wobble");
+    void el.offsetWidth;
+    el.classList.add("wobble");
+  }
 }
 
-function CloudDecor({ faint = false }) {
+function triggerSparkle() {
+  const layer = document.querySelector(".sparkle-layer");
+  if (!layer) return;
+  layer.innerHTML = "";
+  const positions = ["10%", "30%", "60%", "80%", "45%"];
+  positions.forEach(function (left, i) {
+    const s = document.createElement("div");
+    s.textContent = "✨";
+    s.style.position = "absolute";
+    s.style.left = left;
+    s.style.top = (20 + (i % 3) * 20) + "%";
+    s.style.fontSize = "16px";
+    s.style.animation = "sparkleFloat 0.6s ease-out " + (i * 0.05) + "s";
+    s.style.opacity = "0";
+    layer.appendChild(s);
+  });
+  setTimeout(function () { layer.innerHTML = ""; }, 700);
+}
+
+function showLevelUpOverlay() {
+  const shell = document.querySelector(".shell");
+  if (!shell) return;
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:absolute;inset:0;background:rgba(60,74,62,0.45);display:flex;align-items:center;justify-content:center;border-radius:28px;z-index:10;";
+  overlay.innerHTML = '<div style="background:#fff;border-radius:22px;padding:26px 32px;text-align:center;">' +
+    '<div style="font-size:40px;">🌟</div>' +
+    '<div style="font-weight:900;font-size:17px;color:#3C4A3E;">レベルアップ！</div>' +
+    '<div style="font-size:12.5px;color:#9AA69B;">Lv.' + state.level + ' になった</div>' +
+    '</div>';
+  shell.appendChild(overlay);
+  setTimeout(function () { overlay.remove(); }, 1800);
+}
+
+function resetGame() {
+  state.screen = "title";
+  state.friends = [];
+  state.level = 1;
+  state.exp = 0;
+  render();
+}
+
+function goMap() {
+  state.screen = "map";
+  render();
+}
+
+function cloudDecorHTML(faint) {
   const op = faint ? 0.5 : 1;
-  return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 1 }}>
-      <div style={{ position: "absolute", top: 20, left: -10, fontSize: 34, opacity: op }}>☁️</div>
-      <div style={{ position: "absolute", top: 70, right: -6, fontSize: 26, opacity: op * 0.8 }}>☁️</div>
-      <div style={{ position: "absolute", bottom: 30, left: 10, fontSize: 22, opacity: op * 0.6 }}>☁️</div>
-      <div style={{ position: "absolute", top: 130, left: "45%", fontSize: 18, opacity: op * 0.5 }}>✨</div>
-    </div>
-  );
+  return '<div class="cloud-decor">' +
+    '<span style="top:20px;left:-10px;font-size:34px;opacity:' + op + ';">☁️</span>' +
+    '<span style="top:70px;right:-6px;font-size:26px;opacity:' + (op * 0.8) + ';">☁️</span>' +
+    '<span style="bottom:30px;left:10px;font-size:22px;opacity:' + (op * 0.6) + ';">☁️</span>' +
+    '<span style="top:130px;left:45%;font-size:18px;opacity:' + (op * 0.5) + ';">✨</span>' +
+    '</div>';
 }
 
-function SparkleBurst() {
-  return (
-    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 3 }}>
-      {["10%", "30%", "60%", "80%", "45%"].map((left, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            left,
-            top: `${20 + (i % 3) * 20}%`,
-            fontSize: 16,
-            animation: `sparkleFloat 0.6s ease-out ${i * 0.05}s`,
-            opacity: 0,
-          }}
-        >
-          ✨
-        </div>
-      ))}
-      <style>{`
-        @keyframes sparkleFloat {
-          0% { opacity: 0; transform: translateY(0) scale(0.5); }
-          40% { opacity: 1; transform: translateY(-10px) scale(1.1); }
-          100% { opacity: 0; transform: translateY(-24px) scale(0.9); }
-        }
-      `}</style>
-    </div>
-  );
+function genkiBarHTML(value, max, color) {
+  const pct = Math.max(0, (value / max) * 100);
+  return '<div style="width:100%;max-width:120px;">' +
+    '<div class="genki-bar-track"><div class="genki-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
+    '</div>';
 }
 
-function Shell({ children, bg }) {
-  return (
-    <div
-      style={{
-        fontFamily: "'Hiragino Maru Gothic ProN','Hiragino Sans', -apple-system, sans-serif",
-        width: "100%",
-        maxWidth: 420,
-        margin: "0 auto",
-        minHeight: 640,
-        background: bg,
-        borderRadius: 28,
-        position: "relative",
-        boxShadow: "0 10px 34px rgba(60,74,62,0.12)",
-        overflow: "hidden",
-      }}
-    >
-      {children}
-    </div>
-  );
+function renderTitle() {
+  const root = document.getElementById("root");
+  root.innerHTML =
+    '<div class="shell" style="background:linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 65%);">' +
+      cloudDecorHTML(false) +
+      '<div class="content" style="text-align:center;padding:56px 24px 40px;">' +
+        '<div style="font-size:58px;margin-bottom:6px;">☁️🏰☁️</div>' +
+        '<h1 style="font-family:\'Hiragino Maru Gothic ProN\',sans-serif;font-size:26px;color:#3C4A3E;margin:4px 0 8px;font-weight:900;letter-spacing:1px;">くものうえ 学び王国</h1>' +
+        '<p style="color:#6b7d6e;font-size:13.5px;margin:0 0 30px;line-height:1.7;">5つの島をめぐって、教科の精霊たちと<br/>なかよくなろう！</p>' +
+        '<div style="display:flex;justify-content:center;gap:14px;margin-bottom:34px;">' +
+          ISLANDS.map(function (s) { return '<div style="font-size:26px;">' + s.sEmoji + '</div>'; }).join("") +
+        '</div>' +
+        '<button class="round-btn" style="background:#F4C15C;color:#3C4A3E;" onclick="goMap()">🌤️ ぼうけんを はじめる</button>' +
+      '</div>' +
+    '</div>';
 }
 
-function roundBtnStyle(bg, textColor) {
-  return {
-    background: bg,
-    color: textColor,
-    border: "none",
-    borderRadius: 999,
-    padding: "14px 30px",
-    fontSize: 14.5,
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 4px 0 rgba(60,74,62,0.15)",
-    letterSpacing: 0.3,
-    WebkitTapHighlightColor: "transparent",
-  };
+function renderMap() {
+  const root = document.getElementById("root");
+  const allDone = state.friends.length === ISLANDS.length;
+  root.innerHTML =
+    '<div class="shell" style="background:linear-gradient(180deg, #DCEEF7 0%, #FFF8EC 70%);">' +
+      cloudDecorHTML(true) +
+      '<div class="content" style="padding:20px 16px 28px;">' +
+        '<div style="background:#fff;border-radius:18px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 10px rgba(60,74,62,0.06);">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="font-size:24px;">🧑‍🌾</div>' +
+            '<div>' +
+              '<div style="font-size:12.5px;font-weight:800;color:#3C4A3E;">勇者 Lv.' + state.level + '</div>' +
+              '<div style="font-size:10.5px;color:#9AA69B;">EXP ' + state.exp + '/' + expToNext() + ' ・ なかま ' + state.friends.length + '/5</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="width:84px;"><div style="height:8px;background:#EDEAE2;border-radius:8px;overflow:hidden;"><div style="height:100%;width:' + ((state.exp / expToNext()) * 100) + '%;background:#F4C15C;border-radius:8px;transition:width 0.5s;"></div></div></div>' +
+        '</div>' +
+        '<h2 style="text-align:center;font-size:17px;color:#3C4A3E;margin:20px 0 16px;font-weight:800;">島を えらんでね</h2>' +
+        '<div style="display:flex;flex-direction:column;gap:12px;">' +
+          ISLANDS.map(function (s) {
+            const done = state.friends.indexOf(s.id) !== -1;
+            return '<button class="island-card" style="border-color:' + (done ? s.accent : "#F0EEE7") + ';" onclick="startIsland(\'' + s.id + '\')">' +
+              '<div class="island-icon" style="background:' + s.bg + ';">' + s.emoji + '</div>' +
+              '<div style="flex:1;min-width:0;">' +
+                '<div style="font-size:14.5px;font-weight:800;color:#3C4A3E;">' + s.name + '</div>' +
+                '<div style="font-size:12px;color:#9AA69B;margin-top:1px;">' + s.sEmoji + ' ' + s.spirit + '・' + s.short + '</div>' +
+              '</div>' +
+              (done ? '<div style="font-size:20px;">💛</div>' : '<div style="font-size:18px;color:#C9CFC5;">→</div>') +
+            '</button>';
+          }).join("") +
+        '</div>' +
+        (allDone ? '<div style="margin-top:22px;text-align:center;"><button class="round-btn" style="background:#F4C15C;color:#3C4A3E;" onclick="state.screen=\'allclear\';render();">🏆 王国のひろばへ</button></div>' : "") +
+      '</div>' +
+    '</div>';
 }
 
+function renderBattle() {
+  const root = document.getElementById("root");
+  const island = state.island;
+  const q = currentQ();
+  if (!q) return;
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<QuestGame />);
+  const choicesHTML = q.choices.map(function (c, i) {
+    let bg = "#FAF9F5", border = "#F0EEE7", color = "#3C4A3E";
+    if (state.choiceState) {
+      if (i === q.a) { bg = "#EAF4EA"; border = "#7FB685"; }
+      else if (i === state.selected) { bg = "#FAECEA"; border = "#E0A79A"; }
+    }
+    const disabled = state.choiceState ? "disabled" : "";
+    return '<button class="choice-btn" style="background:' + bg + ';border-color:' + border + ';color:' + color + ';" ' + disabled + ' onclick="answer(' + i + ')">' + c + '</button>';
+  }).join("");
+
+  root.innerHTML =
+    '<div class="shell" style="background:linear-gradient(180deg, ' + island.bg + ' 0%, #FFFDF9 60%);">' +
+      cloudDecorHTML(true) +
+      '<div class="content" style="padding:16px 16px 22px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+          '<span style="font-size:12.5px;font-weight:800;color:' + island.accentDark + ';">' + island.emoji + ' ' + island.name + '</span>' +
+          '<span style="font-size:11.5px;font-weight:700;color:#9AA69B;background:#fff;padding:3px 10px;border-radius:20px;">Lv.' + state.level + '</span>' +
+        '</div>' +
+        '<div style="background:#fff;border-radius:22px;padding:20px 16px 16px;box-shadow:0 4px 14px rgba(60,74,62,0.08);position:relative;overflow:hidden;">' +
+          '<div class="sparkle-layer" style="position:absolute;inset:0;pointer-events:none;z-index:3;"></div>' +
+          '<div style="display:flex;justify-content:space-around;align-items:flex-end;margin-bottom:14px;gap:10px;">' +
+            '<div style="text-align:center;">' +
+              '<div style="font-size:42px;">🧑‍🌾</div>' +
+              '<div style="font-size:11px;font-weight:700;color:#6b7d6e;margin:2px 0 5px;">勇者</div>' +
+              genkiBarHTML(state.playerGenki, MAX_GENKI.player, "#7FB685") +
+              '<div style="font-size:10px;color:#9AA69B;margin-top:2px;">げんき ' + Math.max(0, state.playerGenki) + '</div>' +
+            '</div>' +
+            '<div style="font-size:18px;color:#DCD6C8;">💫</div>' +
+            '<div class="spirit-figure" style="text-align:center;">' +
+              '<div style="font-size:42px;">' + island.sEmoji + '</div>' +
+              '<div style="font-size:11px;font-weight:700;color:#6b7d6e;margin:2px 0 5px;">' + island.spirit + '</div>' +
+              genkiBarHTML(state.spiritGenki, MAX_GENKI.spirit, island.accent) +
+              '<div style="font-size:10px;color:#9AA69B;margin-top:2px;">げんき ' + Math.max(0, state.spiritGenki) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:' + island.bg + ';color:#3C4A3E;border-radius:14px;padding:9px 14px;font-size:12.5px;min-height:36px;display:flex;align-items:center;font-weight:700;">' + state.log + '</div>' +
+        '</div>' +
+        '<div style="margin-top:14px;background:#fff;border-radius:20px;padding:16px 16px 14px;box-shadow:0 4px 14px rgba(60,74,62,0.08);">' +
+          (state.combo > 1 ? '<div style="font-size:11.5px;font-weight:800;color:#F4C15C;margin-bottom:6px;">✨ ' + state.combo + 'れん続 正かい中！</div>' : "") +
+          '<div style="font-size:15px;font-weight:800;color:#3C4A3E;margin-bottom:14px;line-height:1.55;">' + q.q + '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' + choicesHTML + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderClear() {
+  const root = document.getElementById("root");
+  const island = state.island;
+  root.innerHTML =
+    '<div class="shell" style="background:linear-gradient(180deg, ' + island.bg + ' 0%, #FFFDF9 60%);">' +
+      cloudDecorHTML(true) +
+      '<div class="content" style="text-align:center;padding:54px 24px;">' +
+        '<div style="font-size:54px;">' + island.sEmoji + '💛</div>' +
+        '<h2 style="color:#3C4A3E;font-size:19px;margin:10px 0 4px;font-weight:900;">' + island.spirit + ' と なかよくなった！</h2>' +
+        '<p style="color:#9AA69B;font-size:12.5px;margin-bottom:24px;">' + island.name + '・クリア</p>' +
+        '<div style="background:#fff;border-radius:18px;padding:14px 22px;display:inline-block;margin-bottom:28px;box-shadow:0 4px 14px rgba(60,74,62,0.06);">' +
+          '<div style="font-size:12.5px;color:#6b7d6e;font-weight:700;">Lv.' + state.level + ' ・ EXP ' + state.exp + '/' + expToNext() + '</div>' +
+        '</div>' +
+        '<div><button class="round-btn" style="background:' + island.accent + ';color:#fff;" onclick="goMap()">☁️ 島マップへ もどる</button></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderRest() {
+  const root = document.getElementById("root");
+  root.innerHTML =
+    '<div class="shell" style="background:linear-gradient(180deg, #EFEAF6 0%, #FFF8EC 70%);">' +
+      cloudDecorHTML(true) +
+      '<div class="content" style="text-align:center;padding:54px 24px;">' +
+        '<div style="font-size:54px;">💤🛏️</div>' +
+        '<h2 style="color:#3C4A3E;font-size:19px;margin:10px 0 4px;font-weight:900;">ちょっと ひとやすみ</h2>' +
+        '<p style="color:#9AA69B;font-size:12.5px;margin-bottom:24px;line-height:1.7;">げんきが なくなっちゃった…<br/>また ちょうせんしてみよう！</p>' +
+        '<button class="round-btn" style="background:#F4C15C;color:#3C4A3E;" onclick="goMap()">☁️ 島マップへ もどる</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderAllClear() {
+  const root = document.getElementById("root");
+  root.innerHTML =
+    '<div class="shell" style="background:linear-gradient(180deg, #FFF3D6 0%, #FFF8EC 65%);">' +
+      cloudDecorHTML(false) +
+      '<div class="content" style="text-align:center;padding:54px 24px;">' +
+        '<div style="font-size:60px;">🏆</div>' +
+        '<h2 style="color:#3C4A3E;font-size:21px;margin:10px 0 4px;font-weight:900;">王国の なかまが そろった！</h2>' +
+        '<p style="color:#6b7d6e;font-size:13px;margin-bottom:22px;line-height:1.7;">5つの島の精霊 みんなと なかよくなった！<br/>Lv.' + state.level + ' の勇者になったよ。</p>' +
+        '<div style="font-size:28px;margin-bottom:26px;">' + ISLANDS.map(function (s) { return '<span style="margin:0 5px;">' + s.sEmoji + '</span>'; }).join("") + '</div>' +
+        '<button class="round-btn" style="background:#F4C15C;color:#3C4A3E;" onclick="resetGame()">🔁 さいしょから あそぶ</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function render() {
+  if (state.screen === "title") renderTitle();
+  else if (state.screen === "map") renderMap();
+  else if (state.screen === "battle") renderBattle();
+  else if (state.screen === "clear") renderClear();
+  else if (state.screen === "rest") renderRest();
+  else if (state.screen === "allclear") renderAllClear();
+}
+
+render();
 </script>
 </body>
 </html>
